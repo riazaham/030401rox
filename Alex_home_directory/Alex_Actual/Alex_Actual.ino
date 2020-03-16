@@ -2,6 +2,7 @@
 
 #include "packet.h"
 #include "constants.h"
+#include <math.h>
 
 /*
  * Alex's configuration constants
@@ -28,20 +29,24 @@ volatile TDirection dir = STOP;
 // Number of ticks per revolution from the 
 // wheel encoder.
 
-#define COUNTS_PER_REV      1
+#define COUNTS_PER_REV      180
 
 // Wheel circumference in cm.
 // We will use this to calculate forward/backward distance traveled 
 // by taking revs * WHEEL_CIRC
 
-#define WHEEL_CIRC          1
+#define WHEEL_CIRC          22
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  5   // Left forward pin
-#define LR                  6   // Left reverse pin
+#define LF                  6   // Left forward pin
+#define LR                  5   // Left reverse pin
 #define RF                  10  // Right forward pin
 #define RR                  11  // Right reverse pin
+
+#define ALEX_LENGTH 16
+#define ALEX_BREADTH 6
+//#define PI 3.141592654
 
 /*
  *    Alex's State Variables
@@ -70,6 +75,13 @@ volatile unsigned long rightRevs;
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
 
+unsigned long deltaDist;
+unsigned long newDist;
+unsigned long deltaTicks;
+unsigned long targetTicks;
+
+float AlexDiagonal = 0.0;
+float AlexCirc = 0.0;
 
 /*
  * 
@@ -97,6 +109,21 @@ TResult readPacket(TPacket *packet)
 
 void sendStatus()
 {
+  TPacket statusPacket;
+  statusPacket.packetType = PACKET_TYPE_RESPONSE;
+  statusPacket.command = RESP_STATUS;
+  statusPacket.params[0] = leftForwardTicks;
+  statusPacket.params[1] = rightForwardTicks;
+  statusPacket.params[2] = leftReverseTicks;
+  statusPacket.params[3] = rightReverseTicks;
+  statusPacket.params[4] = leftForwardTicksTurns;
+  statusPacket.params[5] = rightForwardTicksTurns;
+  statusPacket.params[6] = leftReverseTicks;
+  statusPacket.params[7] = rightReverseTicksTurns;
+  statusPacket.params[8] = forwardDist;
+  statusPacket.params[9] = reverseDist;
+
+  sendResponse(&statusPacket);
   // Implement code to send back a packet containing key
   // information like leftTicks, rightTicks, leftRevs, rightRevs
   // forwardDist and reverseDist
@@ -363,6 +390,10 @@ void forward(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
+
+  if(dist > 0) deltaDist = dist;
+  else deltaDist = 9999999;
+  newDist = forwardDist + deltaDist;
   
   analogWrite(LF, val);
   analogWrite(RF, val);
@@ -380,6 +411,9 @@ void reverse(float dist, float speed)
   dir = BACKWARD;
   int val = pwmVal(speed);
 
+  if(dist > 0) deltaDist = dist;
+  else deltaDist = 9999999;
+  newDist = reverseDist + deltaDist;
   // For now we will ignore dist and 
   // reverse indefinitely. We will fix this
   // in Week 9.
@@ -398,10 +432,20 @@ void reverse(float dist, float speed)
 // turn left at half speed.
 // Specifying an angle of 0 degrees will cause Alex to
 // turn left indefinitely.
+
+unsigned long computeDeltaTicks(float ang){
+  unsigned long ticks = (unsigned long)((ang * AlexCirc * COUNTS_PER_REV)/(360.0 * WHEEL_CIRC));
+  return ticks;
+}
+
 void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
+  if(ang == 0) deltaTicks = 9999999;
+  else deltaTicks = computeDeltaTicks(ang);
+  targetTicks = leftReverseTicksTurns + deltaTicks;
+  
 
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
@@ -422,6 +466,10 @@ void right(float ang, float speed)
 {
   dir = RIGHT;
   int val = pwmVal(speed);
+
+  if(ang == 0) deltaTicks = 9999999;
+  else deltaTicks = computeDeltaTicks(ang);
+  targetTicks = rightReverseTicksTurns + deltaTicks;
 
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
@@ -518,16 +566,35 @@ void handleCommand(TPacket *command)
     case COMMAND_FORWARD:
         sendOK();
         forward((float) command->params[0], (float) command->params[1]);
-      break;
+    break;
 
     case COMMAND_TURN_LEFT:
         sendOK();
         left((float) command->params[0], (float) command->params[1]);
-      break;
+    break;
+    
+    case COMMAND_REVERSE:
+        sendOK();
+        reverse((float) command->params[0], (float) command->params[1]);
+    break;
+    
+    case COMMAND_STOP:
+        sendOK();
+        stop();
+    break;
     /*
      * Implement code for other commands here.
      * 
      */
+    case COMMAND_CLEAR_STATS:
+        sendOK();
+        clearOneCounter(command->params[0]);
+    break;
+
+    case COMMAND_GET_STATS:
+        sendOK();
+        sendStatus();
+    break;
         
     default:
       sendBadCommand();
@@ -582,6 +649,9 @@ void setup() {
   startMotors();
   enablePullups();
   initializeState();
+
+  AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
+  AlexCirc = PI * AlexDiagonal;
   sei();
 }
 
@@ -614,7 +684,8 @@ void loop() {
 // forward(0, 100);
 
 // Uncomment the code below for Week 9 Studio 2
-
+  
+ 
 
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
@@ -623,7 +694,7 @@ void loop() {
   
   if(result == PACKET_OK)
     handlePacket(&recvPacket);
-  else
+  else{
     if(result == PACKET_BAD)
     {
       sendBadPacket();
@@ -633,6 +704,59 @@ void loop() {
       {
         sendBadChecksum();
       } 
-      
-      
+  }
+  
+  if(deltaDist > 0){
+    if(dir == FORWARD){
+      if(forwardDist > newDist){
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    }
+  }
+  else{
+    if(dir == BACKWARD){
+      if(reverseDist > newDist){
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    }
+    else{
+      if(dir == STOP){
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    }
+  }
+
+  if(deltaTicks > 0){
+    if(dir == LEFT){
+      if(leftReverseTicksTurns >= targetTicks){
+        deltaTicks = 0;
+        targetTicks = 0;
+        stop();
+      }
+    }
+    else{
+      if(dir == RIGHT){
+        if(rightReverseTicksTurns >= targetTicks){
+          if(rightReverseTicksTurns >= targetTicks){
+            deltaTicks = 0;
+            targetTicks = 0;
+            stop();
+          }
+        }
+        else{
+          if(dir == STOP){
+            deltaTicks = 0;
+            targetTicks = 0;
+            stop();
+          }
+        }
+      }
+    }
+  }
 }
