@@ -7,6 +7,14 @@
  * Alex's configuration constants
  */
 
+ ////List of connections made to the Arduino//////
+ //Pin 2: INT0 (PD2)
+ //Pin 3: INT1 (PD3) 
+ //Pin 5: OC1A (PD5) AIN1 AOUT1 RED LEFT MOTOR 
+ //Pin 6: OC1B (PD6) AIN2 AOUT2 BLACK LEFT MOTOR
+ //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
+ //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
+
 typedef enum{
   STOP = 0,
   FORWARD = 1,
@@ -30,8 +38,8 @@ volatile TDirection dir = STOP;
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  6   // Left forward pin
-#define LR                  5   // Left reverse pin
+#define LF                  5   // Left forward pin
+#define LR                  6   // Left reverse pin
 #define RF                  10  // Right forward pin
 #define RR                  11  // Right reverse pin
 
@@ -183,7 +191,8 @@ void enablePullups()
   // Use bare-metal to enable the pull-up resistors on pins
   // 2 and 3. These are pins PD2 and PD3 respectively.
   // We set bits 2 and 3 in DDRD to 0 to make them inputs. 
-  
+  DDRD &= ~((1<<2)|(1<<3));
+  PORTD |= ((1<<2)|(1<<3));
 }
 
 // Functions to be called by INT0 and INT1 ISRs.
@@ -205,8 +214,8 @@ void leftISR()
   }
     
   //leftTicks++;
-  Serial.print("LEFT: ");
-  Serial.println(leftTicks);
+  /*Serial.print("LEFT: ");
+  Serial.println(leftTicks);*/
 }
 
 void rightISR()
@@ -221,8 +230,8 @@ void rightISR()
 
   
   //rightTicks++;
-  Serial.print("RIGHT: ");
-  Serial.println(rightTicks);
+  /*Serial.print("RIGHT: ");
+  Serial.println(rightTicks);*/
 }
 
 // Set up the external interrupt pins INT0 and INT1
@@ -493,7 +502,6 @@ void clearOneCounter(int which)
     case 6:
       reverseDist=0;
       break;*/
-  }
 }
 // Intialize Vincet's internal states
 

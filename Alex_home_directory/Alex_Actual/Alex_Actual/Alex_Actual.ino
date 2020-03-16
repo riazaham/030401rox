@@ -2,10 +2,19 @@
 
 #include "packet.h"
 #include "constants.h"
+#include <stdarg.h>
 
 /*
  * Alex's configuration constants
  */
+
+ ////List of connections made to the Arduino//////
+ //Pin 2: INT0 (PD2)
+ //Pin 3: INT1 (PD3) 
+ //Pin 5: OC1A (PD5) AIN1 AOUT1 RED LEFT MOTOR 
+ //Pin 6: OC1B (PD6) AIN2 AOUT2 BLACK LEFT MOTOR
+ //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
+ //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
 typedef enum{
   STOP = 0,
@@ -20,13 +29,13 @@ volatile TDirection dir = STOP;
 // Number of ticks per revolution from the 
 // wheel encoder.
 
-#define COUNTS_PER_REV      180
+#define COUNTS_PER_REV      1
 
 // Wheel circumference in cm.
 // We will use this to calculate forward/backward distance traveled 
 // by taking revs * WHEEL_CIRC
 
-#define WHEEL_CIRC          22
+#define WHEEL_CIRC          1
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
@@ -41,6 +50,9 @@ volatile TDirection dir = STOP;
 
 // Store the ticks from Alex's left and
 // right encoders.
+volatile unsigned long rightTicks;
+volatile unsigned long leftTicks; 
+
 volatile unsigned long leftForwardTicks; 
 volatile unsigned long leftReverseTicks; 
 volatile unsigned long rightForwardTicks;
@@ -107,6 +119,14 @@ void sendMessage(const char *message)
   messagePacket.packetType=PACKET_TYPE_MESSAGE;
   strncpy(messagePacket.data, message, MAX_STR_LEN);
   sendResponse(&messagePacket);
+}
+
+void dbprintf(char *format, ...) {
+  va_list args;
+  char buffer[128];
+  va_start(args, format);
+  vsprintf(buffer, format, args);
+  sendMessage(buffer);
 }
 
 void sendBadPacket()
@@ -184,7 +204,7 @@ void enablePullups()
   // 2 and 3. These are pins PD2 and PD3 respectively.
   // We set bits 2 and 3 in DDRD to 0 to make them inputs. 
   DDRD &= ~((1<<2)|(1<<3));
-  PORTD |= (1<<2)|(1<<3);
+  PORTD |= ((1<<2)|(1<<3));
 }
 
 // Functions to be called by INT0 and INT1 ISRs.
@@ -206,8 +226,8 @@ void leftISR()
   }
     
   //leftTicks++;
-  /*Serial.print("LEFT: ");
-  Serial.println(leftTicks);*/
+  //Serial.print("LEFT: ");
+  //Serial.println(leftTicks);
 }
 
 void rightISR()
@@ -221,9 +241,9 @@ void rightISR()
 
 
   
-  //rightTicks++;
-  /*Serial.print("RIGHT: ");
-  Serial.println(rightTicks);*/
+ // rightTicks++;
+ // Serial.print("RIGHT: ");
+ // Serial.println(rightTicks);
 }
 
 // Set up the external interrupt pins INT0 and INT1
@@ -355,7 +375,7 @@ void forward(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  
+  //Serial.println(val);
   analogWrite(LF, val);
   analogWrite(RF, val);
   analogWrite(LR,0);
@@ -494,7 +514,6 @@ void clearOneCounter(int which)
     case 6:
       reverseDist=0;
       break;*/
-  }
 }
 // Intialize Vincet's internal states
 
@@ -576,6 +595,10 @@ void setup() {
   enablePullups();
   initializeState();
   sei();
+  pinMode(4, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
 }
 
 void handlePacket(TPacket *packet)
@@ -604,13 +627,13 @@ void loop() {
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
-//forward(0, 100);
+//forward(0, 30);
 
 // Uncomment the code below for Week 9 Studio 2
 
 
  // put your main code here, to run repeatedly:
- TPacket recvPacket; // This holds commands from the Pi
+  TPacket recvPacket; // This holds commands from the Pi
 
   TResult result = readPacket(&recvPacket);
   
@@ -626,6 +649,6 @@ void loop() {
       {
         sendBadChecksum();
       } 
-      
+   
       
 }
