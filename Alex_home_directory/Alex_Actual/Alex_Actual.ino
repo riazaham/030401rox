@@ -39,10 +39,10 @@ volatile TDirection dir = STOP;
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  6   // Left forward pin
-#define LR                  5   // Left reverse pin
-#define RF                  10  // Right forward pin
-#define RR                  11  // Right reverse pin
+#define LF                  10   // Left forward pin
+#define LR                  11   // Left reverse pin
+#define RF                  6   // Right forward pin
+#define RR                  5   // Right reverse pin
 
 #define ALEX_LENGTH 16
 #define ALEX_BREADTH 6
@@ -83,12 +83,32 @@ unsigned long targetTicks;
 float AlexDiagonal = 0.0;
 float AlexCirc = 0.0;
 
+//bool leftMotorCalibrated = false;
+//bool rightMotorCalibrated = false;
+
+double tickDifference = 0.0;
+double curr_speed = 0.0;
+
 /*
  * 
  * Alex Communication Routines.
  * 
  */
- 
+
+void calibrateMotors() {
+  if (tickDifference > 5) { //positive -> turn right wheel more
+    analogWrite(LF, 0.8*curr_speed);
+    analogWrite(RF, curr_speed);
+  } else if (tickDifference < -5) {
+    analogWrite(LF, curr_speed);
+    analogWrite(RF, 0.8*curr_speed);
+  } else {
+    analogWrite(LF, curr_speed);
+    analogWrite(RF, curr_speed);
+  }
+}
+
+
 TResult readPacket(TPacket *packet)
 {
     // Reads in data from the serial port and
@@ -225,10 +245,12 @@ void enablePullups()
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-
+  tickDifference = leftForwardTicks - rightForwardTicks;
   if(dir == RIGHT) leftForwardTicksTurns++;
   
   else if(dir == LEFT) leftReverseTicksTurns++;
+
+  
   
   else if(dir == FORWARD) {
     forwardDist = (unsigned long)((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
@@ -252,10 +274,8 @@ void rightISR()
     else if (dir == BACKWARD) rightReverseTicks++; 
     else if (dir == RIGHT) rightReverseTicksTurns++; 
     else if (dir == LEFT) rightForwardTicksTurns++; 
-  
 
-
-  
+    tickDifference = leftForwardTicks - rightForwardTicks;
   //rightTicks++;
   /*Serial.print("RIGHT: ");
   Serial.println(rightTicks);*/
@@ -381,8 +401,8 @@ int pwmVal(float speed)
 void forward(float dist, float speed)
 {
   dir = FORWARD;
-  int val = pwmVal(speed);
-  
+  curr_speed = speed;
+  int val = pwmVal(curr_speed);
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
   // in Week 9.
@@ -391,13 +411,13 @@ void forward(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
 
+
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  
   analogWrite(LF, val);
   analogWrite(RF, val);
-  analogWrite(LR,0);
+  analogWrite(LR, 0);
   analogWrite(RR, 0);
 }
 
@@ -446,15 +466,15 @@ void left(float ang, float speed)
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
   
-
+  
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(LR, val);
   analogWrite(RF, val);
-  analogWrite(LF, 0);
+  analogWrite(LR, val);
   analogWrite(RR, 0);
+  analogWrite(LF, 0);
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -477,18 +497,20 @@ void right(float ang, float speed)
   // the left wheel forward.
   analogWrite(RR, val);
   analogWrite(LF, val);
-  analogWrite(LR, 0);
   analogWrite(RF, 0);
+  analogWrite(LR, 0);
 }
 
 // Stop Alex. To replace with bare-metal code later.
 void stop()
 {
   dir = STOP;
+  curr_speed = 0;
   analogWrite(LF, 0);
   analogWrite(LR, 0);
   analogWrite(RF, 0);
   analogWrite(RR, 0);
+  
 }
 
 /*
@@ -571,6 +593,11 @@ void handleCommand(TPacket *command)
     case COMMAND_TURN_LEFT:
         sendOK();
         left((float) command->params[0], (float) command->params[1]);
+    break;
+
+    case COMMAND_TURN_RIGHT:
+        sendOK();
+        right((float) command->params[0], (float) command->params[1]);
     break;
     
     case COMMAND_REVERSE:
@@ -705,6 +732,11 @@ void loop() {
         sendBadChecksum();
       } 
   }
+
+  //Calculates the difference in ticks constantly
+  //Positive = Right justified
+  //Negative = Left justified
+  calibrateMotors();
   
   if(deltaDist > 0){
     if(dir == FORWARD){
