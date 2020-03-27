@@ -245,7 +245,6 @@ void enablePullups()
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-  tickDifference = leftForwardTicks - rightForwardTicks;
   if(dir == RIGHT) leftForwardTicksTurns++;
   
   else if(dir == LEFT) leftReverseTicksTurns++;
@@ -261,10 +260,6 @@ void leftISR()
     reverseDist = (unsigned long)((float) leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC); 
     leftReverseTicks++;
   }
-    
-  //leftTicks++;
-  /*Serial.print("LEFT: ");
-  Serial.println(leftTicks);*/
 }
 
 void rightISR()
@@ -275,7 +270,7 @@ void rightISR()
     else if (dir == RIGHT) rightReverseTicksTurns++; 
     else if (dir == LEFT) rightForwardTicksTurns++; 
 
-    tickDifference = leftForwardTicks - rightForwardTicks;
+
   //rightTicks++;
   /*Serial.print("RIGHT: ");
   Serial.println(rightTicks);*/
@@ -505,7 +500,6 @@ void right(float ang, float speed)
 void stop()
 {
   dir = STOP;
-  curr_speed = 0;
   analogWrite(LF, 0);
   analogWrite(LR, 0);
   analogWrite(RF, 0);
@@ -542,27 +536,29 @@ rightReverseTicksTurns = 0;
 // Clears one particular counter
 void clearOneCounter(int which)
 {
-  clearCounters();
-  /*switch(which)
+  //clearCounters();
+  switch(which)
   {
     case 0:
       clearCounters();
       break;
 
     case 1:
-      leftTicks=0;
+      leftForwardTicks=0;
       break;
 
     case 2:
-      rightTicks=0;
+      rightForwardTicks=0;
       break;
 
     case 3:
-      leftRevs=0;
+      leftForwardTicksTurns = 0;
+      leftReverseTicksTurns = 0;
       break;
 
     case 4:
-      rightRevs=0;
+      rightForwardTicksTurns = 0;
+      rightReverseTicksTurns = 0;
       break;
 
     case 5:
@@ -571,7 +567,7 @@ void clearOneCounter(int which)
 
     case 6:
       reverseDist=0;
-      break;*/
+      break;
 }
 // Intialize Vincet's internal states
 
@@ -680,6 +676,7 @@ void setup() {
   AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
   AlexCirc = PI * AlexDiagonal;
   sei();
+
 }
 
 void handlePacket(TPacket *packet)
