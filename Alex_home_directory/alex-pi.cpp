@@ -134,7 +134,7 @@ void sendPacket(TPacket *packet)
 	char buffer[PACKET_SIZE];
 	int len = serialize(buffer, packet, sizeof(TPacket));
 
-	if(ok_flag) serialWrite(buffer, len);
+	serialWrite(buffer, len);
 }
 
 void *receiveThread(void *p)
