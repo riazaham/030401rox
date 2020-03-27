@@ -97,30 +97,15 @@ float AlexCirc = 0.0;
 double tickDifference = 0.0;
 double curr_speed = 0.0;
 
-int kval[10] = {0};
+int kval[10] = {5,5,5,5,5};
 
-kval[_FORWARD] = 5; 
-kval[_BACKWARD] = 5;
-kval[_RIGHT] = 5;
-kval[_LEFT] = 5;
 /*
  * 
  * Alex Communication Routines.
  * 
  */
 
-void calibrateMotors() {
-  if (tickDifference > 5) { //positive -> turn right wheel more
-    analogWrite(LF, 0.8*curr_speed);
-    analogWrite(RF, curr_speed);
-  } else if (tickDifference < -5) {
-    analogWrite(LF, curr_speed);
-    analogWrite(RF, 0.8*curr_speed);
-  } else {
-    analogWrite(LF, curr_speed);
-    analogWrite(RF, curr_speed);
-  }
-}
+
 
 
 TResult readPacket(TPacket *packet)
@@ -408,7 +393,7 @@ int pwmVal(float speed)
 // Specifying a distance of 0 means Alex will
 // continue moving forward indefinitely.
 
-void calibrate(){
+void calibrateMotors(){
   int error;
   switch(dir){
     case FORWARD:

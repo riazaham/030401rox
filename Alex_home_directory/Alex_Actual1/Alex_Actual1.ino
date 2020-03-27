@@ -1,3 +1,4 @@
+
 #include <serialize.h>
 
 #include "packet.h"
@@ -95,32 +96,17 @@ float AlexCirc = 0.0;
 //bool rightMotorCalibrated = false;
 
 double tickDifference = 0.0;
-double curr_speed = 0.0;
+double curr_pwm = 0.0;
 
-int kval[10] = {0};
+int kval[10] = {5,5,5,5,5};
 
-kval[_FORWARD] = 5; 
-kval[_BACKWARD] = 5;
-kval[_RIGHT] = 5;
-kval[_LEFT] = 5;
 /*
  * 
  * Alex Communication Routines.
  * 
  */
 
-void calibrateMotors() {
-  if (tickDifference > 5) { //positive -> turn right wheel more
-    analogWrite(LF, 0.8*curr_speed);
-    analogWrite(RF, curr_speed);
-  } else if (tickDifference < -5) {
-    analogWrite(LF, curr_speed);
-    analogWrite(RF, 0.8*curr_speed);
-  } else {
-    analogWrite(LF, curr_speed);
-    analogWrite(RF, curr_speed);
-  }
-}
+
 
 
 TResult readPacket(TPacket *packet)
@@ -408,41 +394,47 @@ int pwmVal(float speed)
 // Specifying a distance of 0 means Alex will
 // continue moving forward indefinitely.
 
-void calibrate(){
+void calibrateMotors(){
   int error;
+  error = (error < 0)? -error: error;
+  double val = curr_pwm;
   switch(dir){
     case FORWARD:
       error = leftForwardTicks - rightForwardTicks;
       while(error){
-        val = error / kval[FORWARD];
+        val += error / kval[_FORWARD];
         analogWrite(RF, val);
-        delayMicroSeconds(1);
+        delayMicroseconds(1);
+      
       }
     break;
 
     case BACKWARD:
-      error = leftForwardTicks - rightForwardTicks;
+      error = leftReverseTicks - rightReverseTicks;
       while(error){
-        val = error / kval[BACKWARD];
+        val += error / kval[_BACKWARD];
         analogWrite(RR, val);
-        delayMicroSeconds(1);
+        delayMicroseconds(1);
+      
       }
     break;
 
     case RIGHT:
       error = leftForwardTicksTurns - rightReverseTicksTurns;
       while(error){
-        val = error / kval[LEFT];
+        val += error / kval[_RIGHT];
         analogWrite(RR, val);
-        delayMicroSeconds(1);
+        delayMicroseconds(1);
+      }
     break;
 
     case LEFT:
       error = leftReverseTicksTurns - rightForwardTicksTurns;
       while(error){
-        val = error / kval[RIGHT];
+        val += error / kval[_LEFT];
         analogWrite(RF, val);
-        delayMicroSeconds(1);
+        delayMicroseconds(1);
+      }
     break;
   }
 }
@@ -460,8 +452,9 @@ void calibrate(){
 void forward(float dist, float speed)
 {
   dir = FORWARD;
-  curr_speed = speed;
-  int val = pwmVal(curr_speed);
+  
+  int val = pwmVal(speed);
+  curr_pwm = val;
   int error = leftForwardTicks - rightForwardTicks;
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
@@ -479,9 +472,6 @@ void forward(float dist, float speed)
   analogWrite(RF, val);
   analogWrite(LR, 0);
   analogWrite(RR, 0);
-  while(error)
-
- 
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -493,6 +483,7 @@ void reverse(float dist, float speed)
 {
   dir = BACKWARD;
   int val = pwmVal(speed);
+  curr_pwm = val;
 
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
@@ -527,6 +518,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
+  curr_pwm = val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
@@ -552,6 +544,7 @@ void right(float ang, float speed)
 {
   dir = RIGHT;
   int val = pwmVal(speed);
+  curr_pwm = val;
 
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
@@ -641,6 +634,7 @@ void clearOneCounter(int which)
     case 6:
       reverseDist=0;
       break;
+  }
 }
 // Intialize Vincet's internal states
 
@@ -803,6 +797,10 @@ void loop() {
       } 
   }
 
+
+  calibrateMotors();
+  
+  
   if(deltaDist > 0){
     if(dir == FORWARD){
       if(forwardDist > newDist){
