@@ -17,7 +17,6 @@
 
 int exitFlag=0;
 int mode = 0;
-int ok_flag = 0;
 
 char d = 'a';
 char command = 'x';
@@ -158,7 +157,6 @@ void *receiveThread(void *p)
 	
 			if(result == PACKET_OK)
 			{
-				ok_flag = 1;
 				counter=0;
 				handlePacket(&packet);
 			}
