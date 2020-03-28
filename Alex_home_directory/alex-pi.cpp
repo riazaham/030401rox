@@ -160,6 +160,7 @@ void *receiveThread(void *p)
 				handlePacket(&packet);
 			}
 			else 
+				ok_flag = 0;
 				if(result != PACKET_INCOMPLETE)
 				{
 					printf("PACKET ERROR\n\r");
@@ -310,7 +311,7 @@ void sendCommand(char command)
 ///////////////////////////////////////////////
 void* command_toggle_thread(void* p){
 	while(1){
-		if(count){
+		if(count && (ok_flag == 1)){
 			command = d;
 		}
 		else command = 'x';
