@@ -20,10 +20,12 @@ int mode = 0;
 
 char d = 'a';
 char command = 'x';
+char prevcommand = 'x';
 char finalcommand = 'x';
 int count = 0;
 int dircount = 0;
 int state = 0;
+int commandflag = 0;
 
 sem_t _xmitSema;
 
@@ -325,8 +327,9 @@ void sendCommand(char command)
 
 
 void* change_detect_thread(void* p){
-	clock_t time;
-	int prev;
+	if(command == -1) command = prevcommand;
+	/*clock_t time;
+	int count = 0;
 	int curr;
 	int i = 0;
 	int j = 0;
@@ -341,16 +344,21 @@ void* change_detect_thread(void* p){
             j = 1;
             refresh();
         } else {
-            //printw("No key pressed yet...\n");
-            i++;
-            j = 0;
-            refresh();
-            usleep(250000);
+			count++;
+			if(count <= 2) usleep(200000);
+           
+			else{
+				count = 0;
+            	i++;
+            	j = 0;
+            	refresh();
+            	usleep(100000);
+			}
         }
 	}
 
 
-	/*	time = clock();
+		time = clock();
 		prev = count;
 		while(clock() - time < 300000);
 		if(count == prev){
@@ -366,11 +374,13 @@ void* movement_change_thread(void* p){
 	char prev = 'x';	
 	while(1){
 		if(command != prev){
-			if(command == 'x') printw("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n");
+		//	if(command == 'x') printw("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n");
 			prev = command;
 			finalcommand = command;
+			commandflag = 1;
 			sendCommand(finalcommand);
-			printw("command is %c\n", finalcommand);
+			commandflag = 0;
+			
 		}
 	}
 }
@@ -394,6 +404,7 @@ int main()
 {
 	int start = 0;
 	int i= 0, j = 0;
+	int _count = 0;
 	// Connect to the Arduino
 	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
 
@@ -440,26 +451,40 @@ int main()
     				scrollok(stdscr, TRUE);
 				}
 				start = 1;
-				//state = kbhit();
-				if(j == 1) command = d;
-       			else if(i %3 == 0) command = 'x';
+
+				if(j == 1){
+					command = (d == -1)? prevcommand:d;
+					prevcommand = command;
+					printw("button\n");
+				} 
+       			else if(i%2 == 0){
+					command = 'x';
+					prevcommand = command;
+					printw("end\n");
+				}
+				else{
+					command = command;
+				}
+
+				printw("command is %c\n", finalcommand);
+
         		if (kbhit()) {
             		getch();
             		i = 0;
             		j = 1;
             		refresh();
         		} else {
-      
-            		i++;
-            		j = 0;
-            		refresh();
-            		usleep(250000);
+					count++;
+					if (count <= 2) usleep(90000);
+					else{
+						count = 0;
+            			i++;
+            			j = 0;
+            			refresh();
+            			usleep(1000);
+					}
        			}
 
-				//d = getchar();
-				//count++;*/
-
-				//endwin();
 				break;
 		}
 		// Purge extraneous characters from input stream

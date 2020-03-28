@@ -24,7 +24,7 @@
  //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
-
+int count = 0;
 typedef enum{
   STOP = 0,
   FORWARD = 1,
@@ -411,7 +411,7 @@ void calibrateMotors(){
 
     case BACKWARD:
       error = leftReverseTicks - rightReverseTicks;
-      if(error){
+      while(error){
         val += error / kval[_BACKWARD];
         analogWrite(RR, val);
         delayMicroseconds(1);
@@ -430,15 +430,11 @@ void calibrateMotors(){
 
     case LEFT:
       error = leftReverseTicksTurns - rightForwardTicksTurns;
-      if(error){
+      while(error){
         val += error / kval[_LEFT];
         analogWrite(RF, val);
         delayMicroseconds(1);
       }
-    break;
-
-    case STOP:
-      stop();
     break;
   }
 }
@@ -783,7 +779,7 @@ void loop() {
  
 
  // put your main code here, to run repeatedly:
-  TPacket recvPacket; // This holds commands from the Pi
+  /*TPacket recvPacket; // This holds commands from the Pi
 
   TResult result = readPacket(&recvPacket);
   
@@ -855,6 +851,18 @@ void loop() {
         }
       }
     }
-  }
+  }*/
+
+  forward(0, 50);
+  while(count < 100){
+  Serial.print("left forward ticks are ");
+  Serial.println(leftForwardTicksTurns);
+  Serial.print("right forward ticks are ");
+  Serial.println(rightReverseTicksTurns);
+  calibrateMotors();
+  delay(100);
+  count++;
+}
+  stop();
   
 }
