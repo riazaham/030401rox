@@ -98,7 +98,7 @@ float AlexCirc = 0.0;
 double tickDifference = 0.0;
 double curr_pwm = 0.0;
 
-int kval[10] = {5,11,5,5,5};
+int kval[10] = {5,5,5,5,5};
 
 /*
  * 
@@ -861,8 +861,8 @@ void loop() {
   Serial.println(rightReverseTicksTurns);
   calibrateMotors();
   delay(100);
-  //count++;
+  count++;
 }
-  //stop();
+  stop();
   
 }

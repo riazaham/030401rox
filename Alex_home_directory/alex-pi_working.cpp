@@ -10,7 +10,7 @@
 #include "serial.h"
 #include "serialize.h"
 #include "constants.h"
-
+#include "unistd.h"
 
 #define PORT_NAME			"/dev/ttyACM0"
 #define BAUD_RATE			B9600
@@ -69,11 +69,11 @@ void handleResponse(TPacket *packet)
 	{
 		case RESP_OK:
 			printf("Command OK\n\r");
-			break;
+		break;
 
 		case RESP_STATUS:
 			handleStatus(packet);
-			break;
+		break;
 
 		default:
 			printf("Arduino is confused\n\r");
@@ -87,19 +87,19 @@ void handleErrorResponse(TPacket *packet)
 	{
 		case RESP_BAD_PACKET:
 			printf("Arduino received bad magic number\n\r");
-			break;
+		break;
 
 		case RESP_BAD_CHECKSUM:
 			printf("Arduino received bad checksum\n\r");
-			break;
+		break;
 
 		case RESP_BAD_COMMAND:
 			printf("Arduino received bad command\n\r");
-			break;
+		break;
 
 		case RESP_BAD_RESPONSE:
 			printf("Arduino received unexpected response\n\r");
-			break;
+		break;
 
 		default:
 			printf("Arduino reports a weird error\n\r");
@@ -116,19 +116,19 @@ void handlePacket(TPacket *packet)
 	switch(packet->packetType)
 	{
 		case PACKET_TYPE_COMMAND:
-			// Only we send command packets, so ignore
+				// Only we send command packets, so ignore
 			break;
 
 		case PACKET_TYPE_RESPONSE:
-			handleResponse(packet);
+				handleResponse(packet);
 			break;
 
 		case PACKET_TYPE_ERROR:
-			handleErrorResponse(packet);
+				handleErrorResponse(packet);
 			break;
 
 		case PACKET_TYPE_MESSAGE:
-			handleMessage(packet);
+				handleMessage(packet);
 			break;
 	}
 }
@@ -156,7 +156,7 @@ void *receiveThread(void *p)
 		if(len > 0)
 		{
 			result = deserialize(buffer, len, &packet);
-
+	
 			if(result == PACKET_OK)
 			{
 				counter=0;
@@ -193,19 +193,19 @@ void getParamsAuto(TPacket *commandPacket)
 		case COMMAND_FORWARD:
 			commandPacket->params[0] = 0;
 			commandPacket->params[1] = 50;
-			break;
+		break;
 		case COMMAND_REVERSE:
 			commandPacket->params[0] = 0;
 			commandPacket->params[1] = 50;
-			break;
+		break;
 		case COMMAND_TURN_LEFT:
 			commandPacket->params[0] = 0;
 			commandPacket->params[1] = 50;
-			break;
+		break;
 		case COMMAND_TURN_RIGHT: 
 			commandPacket->params[0] = 0;
 			commandPacket->params[1] = 50;
-			break;
+		break;
 	}
 }
 
@@ -221,7 +221,7 @@ void sendCommand(char command)
 		case 'P':
 			mode = (mode == 1)?0:1;
 			break;
-
+			
 		case 'w':
 		case 'W':
 			getParamsAuto(&commandPacket);
@@ -312,75 +312,75 @@ void sendCommand(char command)
 
 ///////////////////////////////////////////////
 /*void* command_toggle_thread(void* p){
-  char prev = 'x';
-  while(1){
-
-  command = d;
-  prev = d;
-  dircount = 0;
-  }
-  else dircount++;
-  }
-  else command = 'x';
-  }
-  }*/
+	char prev = 'x';
+	while(1){
+	
+				command = d;
+				prev = d;
+				dircount = 0;
+			}
+			else dircount++;
+		}
+		else command = 'x';
+	}
+}*/
 
 
 void* change_detect_thread(void* p){
 	if(command == -1) command = prevcommand;
 	/*clock_t time;
-	  int count = 0;
-	  int curr;
-	  int i = 0;
-	  int j = 0;
-	  while(1){
-	  if(j == 1) command = d;
-	  else if(i %3 == 0) command = 'x';
+	int count = 0;
+	int curr;
+	int i = 0;
+	int j = 0;
+	while(1){
+		if(j == 1) command = d;
+        else if(i %3 == 0) command = 'x';
 
-	  if (state) {
-	//printw("Key pressed! It was: %d\n", getch());
-	getch();
-	i = 0;
-	j = 1;
-	refresh();
-	} else {
-	count++;
-	if(count <= 2) usleep(200000);
-
-	else{
-	count = 0;
-	i++;
-	j = 0;
-	refresh();
-	usleep(100000);
+        if (state) {
+            //printw("Key pressed! It was: %d\n", getch());
+            getch();
+            i = 0;
+            j = 1;
+            refresh();
+        } else {
+			count++;
+			if(count <= 2) usleep(200000);
+           
+			else{
+				count = 0;
+            	i++;
+            	j = 0;
+            	refresh();
+            	usleep(100000);
+			}
+        }
 	}
-	}
-	}
 
 
-	time = clock();
-	prev = count;
-	while(clock() - time < 300000);
-	if(count == prev){
-	command = 'x';
-	count = 0;
-	} 
+		time = clock();
+		prev = count;
+		while(clock() - time < 300000);
+		if(count == prev){
+			command = 'x';
+			count = 0;
+		} 
 	} */
 
 
-	}
+}
 
 void* movement_change_thread(void* p){
 	char prev = 'x';	
 	while(1){
 		if(command != prev){
-			//	if(command == 'x') printw("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n");
+		//	if(command == 'x') printw("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n");
 			prev = command;
 			finalcommand = command;
 			commandflag = 1;
-		//	sendCommand(finalcommand);
+			sendCommand(finalcommand);
 			commandflag = 0;
-
+			
 		}
 	}
 }
@@ -389,12 +389,12 @@ void* movement_change_thread(void* p){
 int kbhit(void)
 {
 	d = getch();
-	if (d != ERR) {
-		ungetch(d);
-		return 1;
-	} else {
-		return 0;
-	}
+    if (d != ERR) {
+        ungetch(d);
+        return 1;
+    } else {
+        return 0;
+    }
 }
 ///////////////////////////////////////////////////////////////
 
@@ -406,7 +406,7 @@ int main()
 	int i= 0, j = 0;
 	int _count = 0;
 	// Connect to the Arduino
-//	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
+	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
 
 	// Sleep for two seconds
 	printf("WAITING TWO SECONDS FOR ARDUINO TO REBOOT\n\r");
@@ -419,13 +419,13 @@ int main()
 	pthread_create(&recv, NULL, receiveThread, NULL);
 	//pthread_create(&commandthread[0], NULL, command_toggle_thread, NULL);
 	//pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
-	//pthread_create(&commandthread[2], NULL, movement_change_thread, NULL);
+	pthread_create(&commandthread[2], NULL, movement_change_thread, NULL);
 
 	// Send a hello packet
-	/*TPacket helloPacket;
+	TPacket helloPacket;
 
 	helloPacket.packetType = PACKET_TYPE_HELLO;
-	sendPacket(&helloPacket);*/
+	sendPacket(&helloPacket);
 
 
 	while(!exitFlag)
@@ -448,42 +448,42 @@ int main()
 					cbreak();
 					noecho();
 					nodelay(stdscr, TRUE);
-					scrollok(stdscr, TRUE);
+    				scrollok(stdscr, TRUE);
 				}
 				start = 1;
 
 				if(j == 1){
 					command = (d == -1)? prevcommand:d;
 					prevcommand = command;
-				//	printw("button\n");
+					printw("button\n");
 				} 
-				else if(i%2 == 0){
+       			else if(i%2 == 0){
 					command = 'x';
 					prevcommand = command;
-				//	printw("end\n");
+					printw("end\n");
 				}
 				else{
 					command = command;
 				}
 
-				printw("command is %d\n", finalcommand);
+				printw("command is %c\n", finalcommand);
 
-				if (kbhit()) {
-					getch();
-					i = 0;
-					j = 1;
-					refresh();
-				} else {
-					_count++;
-					if (_count <= 2) usleep(200000);
+        		if (kbhit()) {
+            		getch();
+            		i = 0;
+            		j = 1;
+            		refresh();
+        		} else {
+					count++;
+					if (count <= 2) usleep(90000);
 					else{
-						_count = 0;
-						i++;
-						j = 0;
-						refresh();
-						usleep(50000);
+						count = 0;
+            			i++;
+            			j = 0;
+            			refresh();
+            			usleep(1000);
 					}
-				}
+       			}
 
 				break;
 		}
