@@ -74,6 +74,20 @@ volatile unsigned long leftReverseTicksTurns;
 volatile unsigned long rightForwardTicksTurns;
 volatile unsigned long rightReverseTicksTurns; 
 
+// Store the ticks from Alex's left and
+// right encoders.
+volatile unsigned long _leftForwardTicks; 
+volatile unsigned long _leftReverseTicks; 
+volatile unsigned long _rightForwardTicks;
+volatile unsigned long _rightReverseTicks; 
+
+//Turn counter
+volatile unsigned long _leftForwardTicksTurns; 
+volatile unsigned long _leftReverseTicksTurns; 
+volatile unsigned long _rightForwardTicksTurns;
+volatile unsigned long _rightReverseTicksTurns; 
+
+
 
 // Store the revolutions on Alex's left
 // and right wheels
@@ -394,46 +408,73 @@ int pwmVal(float speed)
 // Specifying a distance of 0 means Alex will
 // continue moving forward indefinitely.
 
+
 void calibrateMotors(){
-  int error;
-  error = (error < 0)? -error: error;
+  double error;
+  int curr_left = 0;
+  int curr_right = 0;
+  
   double val = curr_pwm;
+  
   switch(dir){
     case FORWARD:
-      error = leftForwardTicks - rightForwardTicks;
-      if(error){
-        val += error / kval[_FORWARD];
-        analogWrite(RF, val);
-        delayMicroseconds(1);
+      curr_left = leftForwardTicks;
+      curr_right = rightForwardTicks;
+      delay(10);
+      curr_left = leftForwardTicks - curr_left;
+      curr_right = rightForwardTicks - curr_right;
+      error = curr_left - curr_right;
       
+      if(error){
+        Serial.println(error);
+        val += error/2 ;
+        curr_pwm = val;
+        analogWrite(RF, curr_pwm);
       }
     break;
 
     case BACKWARD:
-      error = leftReverseTicks - rightReverseTicks;
-      if(error){
-        val += error / kval[_BACKWARD];
-        analogWrite(RR, val);
-        delayMicroseconds(1);
+      curr_left = leftReverseTicks;
+      curr_right = rightReverseTicks;
+      delay(10);
+      curr_left = leftReverseTicks - curr_left;
+      curr_right = rightReverseTicks - curr_right;
+      error = curr_left - curr_right;
       
+      if(error){
+        val += error/2 ;
+        curr_pwm = val;
+        analogWrite(RR, curr_pwm);
       }
     break;
 
     case RIGHT:
-      error = leftForwardTicksTurns - rightReverseTicksTurns;
+      curr_left = leftForwardTicksTurns;
+      curr_right = rightReverseTicksTurns;
+      delay(10);
+      curr_left = leftForwardTicksTurns - curr_left;
+      curr_right = rightReverseTicksTurns - curr_right;
+      error = curr_left - curr_right;
+      
       if(error){
-        val += error / kval[_RIGHT];
+        val += error/2;
+        curr_pwm = val;
         analogWrite(RR, val);
-        delayMicroseconds(1);
       }
     break;
 
     case LEFT:
-      error = leftReverseTicksTurns - rightForwardTicksTurns;
+      curr_left = leftReverseTicksTurns;
+      curr_right = rightForwardTicksTurns;
+      delay(10);
+      curr_left = leftReverseTicksTurns - curr_left;
+      curr_right = rightForwardTicksTurns - curr_right;
+      
+      error = curr_left - curr_right;
       if(error){
-        val += error / kval[_LEFT];
+        val += error/2;
+        curr_pwm = val;
         analogWrite(RF, val);
-        delayMicroseconds(1);
       }
     break;
 
@@ -452,13 +493,12 @@ void calibrateMotors(){
 
 
 
-
 void forward(float dist, float speed)
 {
   dir = FORWARD;
   
   int val = pwmVal(speed);
-  curr_pwm = val;
+  curr_pwm = 1.3*val;
   int error = leftForwardTicks - rightForwardTicks;
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
@@ -487,7 +527,7 @@ void reverse(float dist, float speed)
 {
   dir = BACKWARD;
   int val = pwmVal(speed);
-  curr_pwm = val;
+  curr_pwm = 1.3*val;
 
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
@@ -500,7 +540,7 @@ void reverse(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   analogWrite(LR, val);
-  analogWrite(RR, val);
+  analogWrite(RR, curr_pwm);
   analogWrite(LF, 0);
   analogWrite(RF, 0);
 
@@ -522,7 +562,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
-  curr_pwm = val;
+  curr_pwm = 1.3*val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
@@ -532,7 +572,7 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(RF, val);
+  analogWrite(RF, curr_pwm);
   analogWrite(LR, val);
   analogWrite(RR, 0);
   analogWrite(LF, 0);
@@ -548,7 +588,7 @@ void right(float ang, float speed)
 {
   dir = RIGHT;
   int val = pwmVal(speed);
-  curr_pwm = val;
+  curr_pwm = val*1.3;
 
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
@@ -558,7 +598,7 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, val);
+  analogWrite(RR, curr_pwm);
   analogWrite(LF, val);
   analogWrite(RF, 0);
   analogWrite(LR, 0);

@@ -26,6 +26,7 @@ int count = 0;
 int dircount = 0;
 int state = 0;
 int commandflag = 0;
+int ok_flag = 1;
 
 sem_t _xmitSema;
 
@@ -68,6 +69,7 @@ void handleResponse(TPacket *packet)
 	switch(packet->command)
 	{
 		case RESP_OK:
+			ok_flag = 1;
 			printf("Command OK\n\r");
 			break;
 
@@ -139,6 +141,7 @@ void sendPacket(TPacket *packet)
 	int len = serialize(buffer, packet, sizeof(TPacket));
 
 	serialWrite(buffer, len);
+	ok_flag = 0;
 }
 
 void *receiveThread(void *p)
@@ -200,11 +203,11 @@ void getParamsAuto(TPacket *commandPacket)
 			break;
 		case COMMAND_TURN_LEFT:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 50;
+			commandPacket->params[1] = 70;
 			break;
 		case COMMAND_TURN_RIGHT: 
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 50;
+			commandPacket->params[1] = 70;
 			break;
 	}
 }
@@ -378,7 +381,10 @@ void* movement_change_thread(void* p){
 			prev = command;
 			finalcommand = command;
 			commandflag = 1;
-			sendCommand(finalcommand);
+			if (ok_flag){
+			       	sendCommand(finalcommand);
+				
+			}
 			commandflag = 0;
 
 		}
@@ -427,7 +433,7 @@ int main()
 
 	helloPacket.packetType = PACKET_TYPE_HELLO;
 	sendPacket(&helloPacket);
-
+        ok_flag = 1;
 
 	while(!exitFlag)
 	{
@@ -458,7 +464,7 @@ int main()
 					//printw("Number of d is %d\n", d);
 					command = (d == -1 || d == (char)255)? prevcommand:d;
 					prevcommand = command;
-					if(_count <= 1) usleep(490000);
+					if(_count <= 1) usleep(470000);
 				//	printw("button\n");
 
 				} 
@@ -468,7 +474,8 @@ int main()
 				//	printw("end\n");
 
 				}
-				
+				if(ok_flag) printw("Ready!\n");
+				else printw("Busy!\n");
 				printw("command is %c\n", finalcommand);
 
 				if (kbhit()) {
