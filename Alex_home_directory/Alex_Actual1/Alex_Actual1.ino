@@ -802,7 +802,7 @@ void loop() {
   }
 
 
-  calibrateMotors();
+  //calibrateMotors();
   
   
   if(deltaDist > 0){

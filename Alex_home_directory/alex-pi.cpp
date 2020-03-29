@@ -17,7 +17,7 @@
 
 int exitFlag=0;
 int mode = 0;
-int ok_flag = 0;
+int ok_flag = 1;
 
 char d = 'a';
 char command = 'x';
@@ -137,7 +137,7 @@ void sendPacket(TPacket *packet)
 	char buffer[PACKET_SIZE];
 	int len = serialize(buffer, packet, sizeof(TPacket));
 
-	serialWrite(buffer, len);
+	if(ok_flag) serialWrite(buffer, len);
 }
 
 void *receiveThread(void *p)
@@ -163,6 +163,7 @@ void *receiveThread(void *p)
 				handlePacket(&packet);
 			}
 			else 
+				ok_flag = 0;
 				if(result != PACKET_INCOMPLETE)
 				{
 					printf("PACKET ERROR\n\r");
@@ -324,7 +325,7 @@ void sendCommand(char command)
 		else command = 'x';
 	}
 }*/
-
+/*
 
 void* change_detect_thread(void* p){
 	clock_t time;
@@ -352,9 +353,17 @@ void* change_detect_thread(void* p){
 	}
 
 
-	/*	time = clock();
+		time = clock();
 		prev = count;
 		while(clock() - time < 300000);
+		if(count == 1){
+			time = clock();
+			prev = count;
+			while(clock() - time < 9000000);
+		}
+		time = clock();
+	
+		while(clock() - time < 300000); //300000
 		if(count == prev){
 			command = 'x';
 			count = 0;
