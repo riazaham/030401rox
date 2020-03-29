@@ -16,7 +16,7 @@
 #define BAUD_RATE			B9600
 
 int exitFlag=0;
-int mode = 0;
+int mode = 1;
 
 char d = 'a';
 char command = 'x';
@@ -389,7 +389,7 @@ void* movement_change_thread(void* p){
 int kbhit(void)
 {
 	d = getch();
-	//printw("d is %c, %d\n",d, d); 
+	printw("d is %c, %d\n",d, d); 
 	if (d != (char)255) {
 		ungetch(d);
 		return 1;
@@ -406,33 +406,34 @@ int main()
 	int start = 0;
 	int i= 0, j = 0;
 	int _count = 0;
+	int _mode = 1;
 	// Connect to the Arduino
-	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
+	//startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
 
 	// Sleep for two seconds
-	printf("WAITING TWO SECONDS FOR ARDUINO TO REBOOT\n\r");
-	sleep(2);
-	printf("DONE\n\r");
+	//printf("WAITING TWO SECONDS FOR ARDUINO TO REBOOT\n\r");
+	//sleep(2);
+	//printf("DONE\n\r");
 
 	// Spawn receiver thread
-	pthread_t recv;
+	//pthread_t recv;
 	pthread_t commandthread[3];
-	pthread_create(&recv, NULL, receiveThread, NULL);
+	//pthread_create(&recv, NULL, receiveThread, NULL);
 	//pthread_create(&commandthread[0], NULL, command_toggle_thread, NULL);
 	//pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
 	pthread_create(&commandthread[2], NULL, movement_change_thread, NULL);
 
 	// Send a hello packet
-	TPacket helloPacket;
+	/*TPacket helloPacket;
 
-	helloPacket.packetType = PACKET_TYPE_HELLO;
-	sendPacket(&helloPacket);
+	  helloPacket.packetType = PACKET_TYPE_HELLO;
+	  sendPacket(&helloPacket);*/
 
-
+	//flushInput();
 	while(!exitFlag)
 	{
 		char ch;
-		switch (mode){
+		switch (_mode){
 			case 0: endwin();
 				start = 0;
 				printf("Command (p=toggle to easy mode, f=forward, b=reverse, l=turn left, r=turn right, x=stop, c=clear stats, g=get stats q=exit)\n\r");
@@ -442,7 +443,8 @@ int main()
 				sendCommand(ch);
 				break;
 
-			case 1: clear();
+			case 1: 
+				//		flushInput();
 				//printf("The final command is %c\n\r", finalcommand);
 				if(!start){
 					initscr();
@@ -450,48 +452,71 @@ int main()
 					noecho();
 					nodelay(stdscr, TRUE);
 					scrollok(stdscr, TRUE);
+					keypad(stdscr, TRUE);
+					printw("initialising!\n");
+					refresh();
 				}
-				start = 1;
+				//start = 1;
+				//flushinp();
+				/*d = getch();
+				sleep(1);
+				refresh();
+				if(d == (char)255){
+					printw("blank\n");
+					refresh();
+					sleep(1);
+				}
 
+				else{
+					printw("d is %d\n", d);
+					refresh();
+					sleep(1);	
+				}
+				endwin();
+				  //return 0;
+				*/
 				if(j == 1){
-					//printw("character of d is %c\n", d);
-					//printw("Number of d is %d\n", d);
-					command = (d == -1 || d == (char)255)? prevcommand:d;
+					printw("character of d is %c\n", d);
+					printw("Number of d is %d\n", d);
+					command = (d == -1)? prevcommand:d;
 					prevcommand = command;
-					if(_count <= 1) usleep(490000);
-				//	printw("button\n");
-
+					printw("button\n");
+					refresh();
 				} 
 				else if(i%2 == 0){
 					command = 'x';
 					prevcommand = command;
-				//	printw("end\n");
-
+					printw("end\n");
+					refresh();
 				}
-				
+				else{
+					command = command;
+				}
+
 				printw("command is %c\n", finalcommand);
 
 				if (kbhit()) {
 					getch();
 					i = 0;
 					j = 1;
-					_count++;
-					refresh();
-				} 
-				
-				else {
-					_count = 0;
-					i++;
-					j = 0;
-					refresh();
-					usleep(35000);
+				} else {
+					count++;
+					if (count <= 2) usleep(200000);
+					else{
+						count = 0;
+						i++;
+						j = 0;
+						usleep(50000);
+					}
 				}
+
 				break;
+
+
 		}
+		// Purge extraneous characters from input stream
+
 	}
-	// Purge extraneous characters from input stream
-
-
 	endwin();
 	printf("Closing connection to Arduino.\n\r");
 	endSerial();

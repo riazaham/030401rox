@@ -36,21 +36,21 @@ int main(void)
 	    i = 0;
 	    j = 1;
         jcount++;
-        printw("jcount is %d\n", jcount);
+        //printw("jcount is %d\n", jcount);
         refresh();
         } 
         
 
         else{
             count++;
-            if (count <= 2) usleep(200000);
+            if (count <= 2) usleep(500000);
             else{
                 count = 0;
 	            i++;
 	            j = 0;
                 jcount = 0;
                 refresh();
-                usleep(50000);
+                usleep(300000);
             }
         }
     }
