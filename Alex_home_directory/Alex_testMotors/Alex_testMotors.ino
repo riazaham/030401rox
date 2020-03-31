@@ -496,15 +496,22 @@ void calibrateMotors(){
     case FORWARD:
       curr_left = leftForwardTicks;
       curr_right = rightForwardTicks;
-      delay(10);
+      delay(50);
       curr_left = leftForwardTicks - curr_left;
       curr_right = rightForwardTicks - curr_right;
       error = curr_left - curr_right;
       
       if(error){
         Serial.println(error);
-        val += error/2 ;
-        curr_pwm = val;
+        val += error*20 ;
+        curr_pwm = (val > 255)? 255: 
+                   (val < 0)? 0:
+                   val;
+        Serial.print("new error is ");
+        Serial.println(error*20);
+        Serial.print("new val is ");
+        Serial.println(curr_pwm);
+        
         analogWrite(RF, curr_pwm);
       }
     break;
@@ -512,14 +519,21 @@ void calibrateMotors(){
     case BACKWARD:
       curr_left = leftReverseTicks;
       curr_right = rightReverseTicks;
-      delay(10);
+      delay(50);
       curr_left = leftReverseTicks - curr_left;
       curr_right = rightReverseTicks - curr_right;
       error = curr_left - curr_right;
       
       if(error){
-        val += error/2 ;
-        curr_pwm = val;
+        val += error*20 ;
+        curr_pwm = (val > 255)? 255: 
+                   (val < 0)? 0:
+                   val;
+        Serial.print("new error is ");
+        Serial.println(error);
+        Serial.print("new val is ");
+        Serial.println(curr_pwm);
+        //curr_pwm = val;
         analogWrite(RR, curr_pwm);
       }
     break;
@@ -527,30 +541,38 @@ void calibrateMotors(){
     case RIGHT:
       curr_left = leftForwardTicksTurns;
       curr_right = rightReverseTicksTurns;
-      delay(10);
+      delay(50);
       curr_left = leftForwardTicksTurns - curr_left;
       curr_right = rightReverseTicksTurns - curr_right;
       error = curr_left - curr_right;
       
       if(error){
-        val += error/2;
-        curr_pwm = val;
-        analogWrite(RR, val);
+        val += error*20;
+        curr_pwm = (val > 255)? 255: 
+                   (val < 0)? 0:
+                   val;
+        analogWrite(RR, curr_pwm);
+        Serial.print("new error is ");
+        Serial.println(error*20);
+        Serial.print("new val is ");
+        Serial.println(curr_pwm);
       }
     break;
 
     case LEFT:
       curr_left = leftReverseTicksTurns;
       curr_right = rightForwardTicksTurns;
-      delay(10);
+      delay(50);
       curr_left = leftReverseTicksTurns - curr_left;
       curr_right = rightForwardTicksTurns - curr_right;
       
       error = curr_left - curr_right;
       if(error){
-        val += error/2;
-        curr_pwm = val;
-        analogWrite(RF, val);
+        val += error*20;
+        curr_pwm = (val > 255)? 255: 
+                   (val < 0)? 0:
+                   val;
+        analogWrite(RF, curr_pwm);
         Serial.print("The error is");
         Serial.println(error);
         Serial.print("The pwval is ");
@@ -592,7 +614,7 @@ void forward(float dist, float speed)
   dir = FORWARD;
   
   int val = pwmVal(speed);
-  curr_pwm = 1.3*val;
+  curr_pwm = 1.36* val;
   int error = leftForwardTicks - rightForwardTicks;
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
@@ -621,7 +643,7 @@ void reverse(float dist, float speed)
 {
   dir = BACKWARD;
   int val = pwmVal(speed);
-  curr_pwm = 1.3 * val;
+  curr_pwm = 1.36 * val;
 
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
@@ -682,7 +704,7 @@ void right(float ang, float speed)
 {
   dir = RIGHT;
   int val = pwmVal(speed);
-  curr_pwm = 1.3* val;
+  curr_pwm = 1.36*val;
 
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
@@ -991,22 +1013,19 @@ void loop() {
     }
   }*/
   signed int error = leftForwardTicks - rightForwardTicks;
-  right(90, 70);
+  //right(0,50);
   //reverse(50,50);
-  //forward(70, 50);
-  
+  left(0, 65);
+  //forward(0, 50);
  
   while(1){
-    /* Serial.print("left forward ticks are ");
-  Serial.println(leftForwardTicks);
-  Serial.print("right forward ticks are ");
-  Serial.println(rightForwardTicks);
-  Serial.print("error is ");
-  Serial.println(error); Serial.print("left forward ticks are ");
-  Serial.println(leftForwardTicks);
-  Serial.print("right forward ticks are ");
-  Serial.println(rightForwardTicks);
-  Serial.print("error is ");
+    //Serial.print("left forward ticks are ");
+  //Serial.println(leftReverseTicks);
+  //Serial.print("right forward ticks are ");
+  //Serial.println(rightReverseTicks);
+  //Serial.print("error is ");
+
+  /*Serial.print("error is ");
   Serial.println(error);*/
     calibrateMotors();
   }

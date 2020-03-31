@@ -203,7 +203,7 @@ void getParamsAuto(TPacket *commandPacket)
 			break;
 		case COMMAND_TURN_LEFT:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 70;
+			commandPacket->params[1] = 90;
 			break;
 		case COMMAND_TURN_RIGHT: 
 			commandPacket->params[0] = 0;
@@ -385,6 +385,7 @@ void* movement_change_thread(void* p){
 			       	sendCommand(finalcommand);
 				
 			}
+			
 			commandflag = 0;
 
 		}
@@ -464,14 +465,14 @@ int main()
 					//printw("Number of d is %d\n", d);
 					command = (d == -1 || d == (char)255)? prevcommand:d;
 					prevcommand = command;
-					if(_count <= 1) usleep(470000);
-				//	printw("button\n");
+					if(_count <= 1) usleep(400000);
+					//printw("button\n");
 
 				} 
-				else if(i%2 == 0){
+				else if(i%3 == 0){
 					command = 'x';
 					prevcommand = command;
-				//	printw("end\n");
+					//printw("end\n");
 
 				}
 				if(ok_flag) printw("Ready!\n");
@@ -491,7 +492,7 @@ int main()
 					i++;
 					j = 0;
 					refresh();
-					usleep(35000);
+					usleep(70000);
 				}
 				break;
 		}
