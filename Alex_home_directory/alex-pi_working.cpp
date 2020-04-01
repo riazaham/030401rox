@@ -27,7 +27,7 @@ int dircount = 0;
 int state = 0;
 int commandflag = 0;
 int ok_flag = 1;
-
+int toggle = 0;
 sem_t _xmitSema;
 
 void handleError(TResult error)
@@ -185,7 +185,7 @@ void flushInput()
 void getParams(TPacket *commandPacket)
 {
 	printf("Enter distance/angle in cm/degrees (e.g. 50) and power in %% (e.g. 75) separated by space.\n\r");
-	printf("E.g. 50 75 means go at 50 cm at 75%% power for forward/backward, or 50 degrees left or right turn at 75%%  power\n\r");
+	printf("E.g. 50 75 means go at 50 cm at 75%% power for forward/backward for 50 degrees left or right turn at 75%%  power\n\r");
 	scanf("%d %d", &commandPacket->params[0], &commandPacket->params[1]);
 	flushInput();
 }
@@ -202,12 +202,12 @@ void getParamsAuto(TPacket *commandPacket)
 			commandPacket->params[1] = 60;
 			break;
 		case COMMAND_TURN_LEFT:
-			commandPacket->params[0] = 8;
-			commandPacket->params[1] = 80;
+			commandPacket->params[0] = 5;
+			commandPacket->params[1] = 85;
 			break;
 		case COMMAND_TURN_RIGHT: 
-			commandPacket->params[0] = 8;
-			commandPacket->params[1] = 80;
+			commandPacket->params[0] = 5;
+			commandPacket->params[1] = 85;
 			break;
 	}
 }
@@ -330,7 +330,12 @@ void sendCommand(char command)
 
 
 void* change_detect_thread(void* p){
-	if(command == -1) command = prevcommand;
+	while(1){
+	  toggle = 1- toggle;
+	  usleep(1000*30);
+	}
+		
+		//printw("toggle is %d\n", toggle);
 	/*clock_t time;
 	  int count = 0;
 	  int curr;
@@ -371,13 +376,22 @@ void* change_detect_thread(void* p){
 	} */
 
 
-	}
+}
 
 void* movement_change_thread(void* p){
-	char prev = 'x';	
+	char prev = 'x';
+	int count = 0;
+		
 	while(1){
+		if(command == 'a' || command == 'd'){
+			command = count%2? command: 'x';
+			count++;
+			usleep(10000);
+		}
 		if(command != prev){
 			//	if(command == 'x') printw("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n");
+			
+			
 			prev = command;
 			finalcommand = command;
 			commandflag = 1;
@@ -386,7 +400,6 @@ void* movement_change_thread(void* p){
 				
 			}
 			
-			commandflag = 0;
 
 		}
 	}
@@ -413,7 +426,6 @@ int main()
 	int start = 0;
 	int i= 0, j = 0;
 	int _count = 0;
-	int toggle = 0;
 	// Connect to the Arduino
 	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
 
@@ -427,7 +439,7 @@ int main()
 	pthread_t commandthread[3];
 	pthread_create(&recv, NULL, receiveThread, NULL);
 	//pthread_create(&commandthread[0], NULL, command_toggle_thread, NULL);
-	//pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
+	pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
 	pthread_create(&commandthread[2], NULL, movement_change_thread, NULL);
 
 	// Send a hello packet
@@ -440,7 +452,6 @@ int main()
 
 	while(!exitFlag)
 	{
-		if(clock() % 40000 == 0) toggle = 1- toggle;
 		char ch;
 		switch (mode){
 			case 0: endwin();
@@ -461,27 +472,32 @@ int main()
 					nodelay(stdscr, TRUE);
 					scrollok(stdscr, TRUE);
 				}
-				start = 1;
+				start = 1;	
+			
+	printw("toggle is %d\n", toggle);
 
-				if(j ==  0){
+				if(j >  0){
 					//printw("character of d is %c\n", d);
 					//printw("Number of d is %d\n", d);
-					command = (toggle)? 'x': (d == -1 || d == (char)255)? prevcommand:
-						  d;
+					command = (d == -1 || d == (char)255)? prevcommand : d;
 					prevcommand = command;
-					if(_count <= 1) usleep(350000);
+					if(_count <= 1) usleep(470000);
 				
-					//printw("button\n");
+					printw("button\n");
 
 				} 
 				else if(i%3 == 0){
 					command = 'x';
 					prevcommand = command;
-					//printw("end\n");
+					printw("end\n");
 
 				}
 				if(ok_flag) printw("Ready!\n");
-				else printw("Busy!\n");
+				else{
+				       	printw("Busy!\n");
+					getch();
+						
+				}
 				printw("command is %c\n", finalcommand);
 
 

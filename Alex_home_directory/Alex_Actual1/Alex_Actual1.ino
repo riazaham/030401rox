@@ -542,7 +542,7 @@ void calibrateMotors(){
       }
     break;
 
-    case RIGHT:
+    /*case RIGHT:
       curr_left = leftForwardTicksTurns;
       curr_right = rightReverseTicksTurns;
       delayMicroseconds(50000);
@@ -574,7 +574,7 @@ void calibrateMotors(){
                    val;
         analogWrite(RF, curr_pwm);
       }
-    break;
+    break;*/
 
     case STOP:
       stop();
