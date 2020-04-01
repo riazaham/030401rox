@@ -195,11 +195,11 @@ void getParamsAuto(TPacket *commandPacket)
 	switch(commandPacket->command){
 		case COMMAND_FORWARD:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 60;
+			commandPacket->params[1] = 65;
 			break;
 		case COMMAND_REVERSE:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 60;
+			commandPacket->params[1] = 65;
 			break;
 		case COMMAND_TURN_LEFT:
 			commandPacket->params[0] = 5;
@@ -439,7 +439,7 @@ int main()
 	pthread_t commandthread[3];
 	pthread_create(&recv, NULL, receiveThread, NULL);
 	//pthread_create(&commandthread[0], NULL, command_toggle_thread, NULL);
-	pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
+	//pthread_create(&commandthread[1], NULL, change_detect_thread, NULL);
 	pthread_create(&commandthread[2], NULL, movement_change_thread, NULL);
 
 	// Send a hello packet
@@ -483,13 +483,13 @@ int main()
 					prevcommand = command;
 					if(_count <= 1) usleep(470000);
 				
-					printw("button\n");
+			//		printw("button\n");
 
 				} 
 				else if(i%3 == 0){
 					command = 'x';
 					prevcommand = command;
-					printw("end\n");
+			//		printw("end\n");
 
 				}
 				if(ok_flag) printw("Ready!\n");

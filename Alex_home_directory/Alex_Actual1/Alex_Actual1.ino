@@ -542,10 +542,10 @@ void calibrateMotors(){
       }
     break;
 
-    /*case RIGHT:
+    case RIGHT:
       curr_left = leftForwardTicksTurns;
       curr_right = rightReverseTicksTurns;
-      delayMicroseconds(50000);
+      delayMicroseconds(5000);
       curr_left = leftForwardTicksTurns - curr_left;
       curr_right = rightReverseTicksTurns - curr_right;
       error = curr_left - curr_right;
@@ -562,7 +562,7 @@ void calibrateMotors(){
     case LEFT:
       curr_left = leftReverseTicksTurns;
       curr_right = rightForwardTicksTurns;
-      delayMicroseconds(50000);
+      delayMicroseconds(5000);
       curr_left = leftReverseTicksTurns - curr_left;
       curr_right = rightForwardTicksTurns - curr_right;
       
@@ -574,7 +574,7 @@ void calibrateMotors(){
                    val;
         analogWrite(RF, curr_pwm);
       }
-    break;*/
+    break;
 
     case STOP:
       stop();
@@ -661,7 +661,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
-  curr_pwm = (1.36*val > 255)?255: 1.36*val;
+  curr_pwm = (1*val > 255)?255: 1*val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;

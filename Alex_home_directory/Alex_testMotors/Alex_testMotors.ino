@@ -707,7 +707,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
-  curr_pwm_r = 1.3* val;
+  curr_pwm_r = (1*val > 255)? 255: 1*val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
@@ -1042,7 +1042,7 @@ void loop() {
     }
   }*/
   signed int error = leftForwardTicks - rightForwardTicks;
-  right(8,85);
+  left(8,85);
   //reverse(50,50);
   //forward(0, 40);
   //forward(0, 50);
@@ -1058,7 +1058,7 @@ void loop() {
 
   /*Serial.print("error is ");
   Serial.println(error);*/
-    calibrateMotors();
+  calibrateMotors();
   delay(200);
   stop();
   delay(200);
