@@ -195,19 +195,19 @@ void getParamsAuto(TPacket *commandPacket)
 	switch(commandPacket->command){
 		case COMMAND_FORWARD:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 50;
+			commandPacket->params[1] = 60;
 			break;
 		case COMMAND_REVERSE:
 			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 50;
+			commandPacket->params[1] = 60;
 			break;
 		case COMMAND_TURN_LEFT:
-			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 90;
+			commandPacket->params[0] = 8;
+			commandPacket->params[1] = 80;
 			break;
 		case COMMAND_TURN_RIGHT: 
-			commandPacket->params[0] = 0;
-			commandPacket->params[1] = 70;
+			commandPacket->params[0] = 8;
+			commandPacket->params[1] = 80;
 			break;
 	}
 }
@@ -227,29 +227,29 @@ void sendCommand(char command)
 
 		case 'w':
 		case 'W':
-			getParamsAuto(&commandPacket);
 			commandPacket.command = COMMAND_FORWARD;
+			getParamsAuto(&commandPacket);
 			sendPacket(&commandPacket);
 			break;
 
 		case 'a':
 		case 'A':
-			getParamsAuto(&commandPacket);
 			commandPacket.command = COMMAND_TURN_LEFT;
+			getParamsAuto(&commandPacket);
 			sendPacket(&commandPacket);
 			break;
 
 		case 's':
 		case 'S':
-			getParamsAuto(&commandPacket);
 			commandPacket.command = COMMAND_REVERSE;
+			getParamsAuto(&commandPacket);
 			sendPacket(&commandPacket);
 			break;
 
 		case 'd':
 		case 'D':
-			getParamsAuto(&commandPacket);
 			commandPacket.command = COMMAND_TURN_RIGHT;
+			getParamsAuto(&commandPacket);
 			sendPacket(&commandPacket);
 			break;
 
@@ -413,6 +413,7 @@ int main()
 	int start = 0;
 	int i= 0, j = 0;
 	int _count = 0;
+	int toggle = 0;
 	// Connect to the Arduino
 	startSerial(PORT_NAME, BAUD_RATE, 8, 'N', 1, 5);
 
@@ -434,10 +435,12 @@ int main()
 
 	helloPacket.packetType = PACKET_TYPE_HELLO;
 	sendPacket(&helloPacket);
+
         ok_flag = 1;
 
 	while(!exitFlag)
 	{
+		if(clock() % 40000 == 0) toggle = 1- toggle;
 		char ch;
 		switch (mode){
 			case 0: endwin();
@@ -460,12 +463,14 @@ int main()
 				}
 				start = 1;
 
-				if(j == 1){
+				if(j ==  0){
 					//printw("character of d is %c\n", d);
 					//printw("Number of d is %d\n", d);
-					command = (d == -1 || d == (char)255)? prevcommand:d;
+					command = (toggle)? 'x': (d == -1 || d == (char)255)? prevcommand:
+						  d;
 					prevcommand = command;
-					if(_count <= 1) usleep(400000);
+					if(_count <= 1) usleep(350000);
+				
 					//printw("button\n");
 
 				} 
@@ -479,12 +484,33 @@ int main()
 				else printw("Busy!\n");
 				printw("command is %c\n", finalcommand);
 
+
+				/*if(!kbhit()){
+					_count = 0;
+					i++;
+					j = 0;
+					refresh();
+					usleep(70000);
+				}
+
+				else{
+					getch();
+					i = 0;
+					j++;
+					_count++;
+					refresh();
+				}*/
+
+
+
+
 				if (kbhit()) {
 					getch();
 					i = 0;
-					j = 1;
+					j++;
 					_count++;
 					refresh();
+				
 				} 
 				
 				else {

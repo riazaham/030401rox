@@ -173,6 +173,8 @@ unsigned long newDist;
 unsigned long deltaTicks;
 unsigned long targetTicks;
 
+volatile int _count = 0;
+
 float AlexDiagonal = 0.0;
 float AlexCirc = 0.0;
 
@@ -479,25 +481,43 @@ int pwmVal(float speed)
 // continue moving forward indefinitely.
 
 
+void dbprint(char *format, ...) {
+  va_list args;
+  char buffer[128];
+
+  va_start(args, format);
+  vsprintf(buffer, format, args);
+  sendMessage(buffer);
+}
+
+
+
+
+
 void calibrateMotors(){
   double error;
   int curr_left = 0;
   int curr_right = 0;
   
   double val = curr_pwm;
+
+  
+  _count++;
+  //dbprint("%d, best count is %d\n", millis(), _count);
   
   switch(dir){
     case FORWARD:
+      
       curr_left = leftForwardTicks;
       curr_right = rightForwardTicks;
-      delay(50);
+      delayMicroseconds(50000);
       curr_left = leftForwardTicks - curr_left;
       curr_right = rightForwardTicks - curr_right;
       error = curr_left - curr_right;
+      //dbprint("time in millis() is %d\n", millis());
       
       if(error){
-        Serial.println(error);
-        val += error*20 ;
+        val += error*20;
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
@@ -508,13 +528,13 @@ void calibrateMotors(){
     case BACKWARD:
       curr_left = leftReverseTicks;
       curr_right = rightReverseTicks;
-      delay(50);
+      delayMicroseconds(50000);
       curr_left = leftReverseTicks - curr_left;
       curr_right = rightReverseTicks - curr_right;
       error = curr_left - curr_right;
       
       if(error){
-        val += error*20 ;
+        val += error*20;
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
@@ -525,7 +545,7 @@ void calibrateMotors(){
     case RIGHT:
       curr_left = leftForwardTicksTurns;
       curr_right = rightReverseTicksTurns;
-      delay(50);
+      delayMicroseconds(50000);
       curr_left = leftForwardTicksTurns - curr_left;
       curr_right = rightReverseTicksTurns - curr_right;
       error = curr_left - curr_right;
@@ -542,7 +562,7 @@ void calibrateMotors(){
     case LEFT:
       curr_left = leftReverseTicksTurns;
       curr_right = rightForwardTicksTurns;
-      delay(50);
+      delayMicroseconds(50000);
       curr_left = leftReverseTicksTurns - curr_left;
       curr_right = rightForwardTicksTurns - curr_right;
       
@@ -560,6 +580,7 @@ void calibrateMotors(){
       stop();
     break;
   }
+  
 }
 
 
@@ -640,7 +661,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
-  curr_pwm = 1.36*val;
+  curr_pwm = (1.36*val > 255)?255: 1.36*val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
@@ -666,7 +687,7 @@ void right(float ang, float speed)
 {
   dir = RIGHT;
   int val = pwmVal(speed);
-  curr_pwm = val*1.36;
+  curr_pwm = (val*1.36 > 255)? 255: 1.36*val;
 
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
@@ -811,6 +832,7 @@ void handleCommand(TPacket *command)
     default:
       sendBadCommand();
   }
+  
 }
 
 void waitForHello()
@@ -892,7 +914,7 @@ void handlePacket(TPacket *packet)
 }
 
 void loop() {
-  calibrateMotors();
+  
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
@@ -922,7 +944,7 @@ void loop() {
   }
 
 
-  
+  calibrateMotors();
   
   
   if(deltaDist > 0){
