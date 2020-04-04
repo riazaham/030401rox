@@ -203,7 +203,11 @@ void getParamsAuto(char dir, int32_t* params)
 	}
 }
 
-
+//Our augment to this command is the accomodation of wasd keys being asserted, 
+//in which we will feed custom parameter values that is best compatible with the movement mode.
+//In this case, we do not require the user to input any parameter values at all.
+//For wasd keys, we hijack the workflow such that we input the conventional f, b, l, r letters
+// to set buffer[1], but we assign the parameter values automatically.
 void sendCommand(char ch, void* conn)
 {
 	char buffer[10];
@@ -298,23 +302,27 @@ void sendCommand(char ch, void* conn)
 	}
 }
 
+	//In order to not spam Serial.write or the program, multiple characters input by default from holding down a key
+	//is now reduced to a single sent command. That is, only when there is a change in direction of movement then a new
+	//command is sent.
 
+	//Also, algorithm takes into account that the command is sent only if the Arduino has received the previous packet 
+	//in full, and hence is ready to accept the next packet of command. This overcomes the problem of Magic number error.
 	void* movement_change_thread(void *conn) {
 		char prev = 'x';
 		int count = 0;
 		while (1) {
 			if (command == 'a' || command == 'd') {
-				command = count? command: 'w';
+				command = count? command: 's';
 				count = 1-count;
-				//usleep(100000);
+				usleep(100000);
 			}
-		
+			
 			if (command != prev) {
 				prev = command;
 				finalcommand = command;
 				if (ok_flag) {
-					sendCommand(finalcommand, conn);
-					
+					sendCommand(finalcommand, conn);			
 					printw("command is %c\n", finalcommand);
 				}
 			}
@@ -355,7 +363,9 @@ void sendCommand(char ch, void* conn)
 				sendCommand(ch, conn);
 				break;
 			
-
+		//The crux of the algorithm is that it samples for input from a keyboard key hold and assigns the appropriate movement command. 
+		//If there is no input for a certain period of time, then a stop movement will automatically be assigned.
+		//This is to as best as we could, simulate gaming controls to allow us to navigate the map with precision and ease.
 		case 1: clear();
 			if (!start) {
 				initscr();
@@ -369,7 +379,6 @@ void sendCommand(char ch, void* conn)
 				command = (d == -1 || d == (char)255) ? prevcommand : d;
 				prevcommand = command;
 				if (_count <= 1) usleep(470000);
-
 			}
 			else if (i % 3 == 0) {
 				command = 'x';
@@ -380,8 +389,6 @@ void sendCommand(char ch, void* conn)
 				printw("Busy!\n");
 				getch();
 			}
-
-			
 
 			if (kbhit()) {
 				getch();
@@ -407,18 +414,6 @@ void sendCommand(char ch, void* conn)
 		EXIT_THREAD(conn);
 		/* END TODO */
 }
-	
-
-	
-
-
-
-
-
-
-
-
-
 
 
 	/* TODO: #define filenames for the client private key, certificatea,
