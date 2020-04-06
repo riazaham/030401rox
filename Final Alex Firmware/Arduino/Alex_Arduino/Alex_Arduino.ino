@@ -338,7 +338,19 @@ ISR(INT1_vect){
 void setupSerial()
 {
   // To replace later with bare-metal.
-  Serial.begin(9600);
+  //Serial.begin(9600);
+ 
+  //bare-metal ------------------- >
+   // Set up for 115200 8N1 for testing with Serial Monitor
+  UCSR0C = 0b00000110;
+  unsigned int b = (16000000 / (16 * 9600)) - 1;
+  UBRR0H = b;
+  UBRR0L = 0;
+
+  UCSR0B = 0b00011000;
+  UCSR0A = 0;
+  // Change to 115200 7E1 when communicating with another
+  // Arduino
 }
 
 // Start the serial connection. For now we are using
