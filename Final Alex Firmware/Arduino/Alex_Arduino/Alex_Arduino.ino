@@ -34,6 +34,12 @@
  //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
+#define RECV_SIZE      128
+#define PIN6 (1 << 6)
+#define PIN5 (1 << 5)
+
+static TBuffer _recvBuffer;
+
 
 typedef enum{
   STOP = 0,
@@ -338,8 +344,21 @@ ISR(INT1_vect){
 void setupSerial()
 {
   // To replace later with bare-metal.
-  Serial.begin(9600);
+  //Serial.begin(9600);
+  UBRR0L = 103;
+  UBRR0H = 0;
+
+  UCSR0C = 0b00000110; 
+  UCSR0A = 0;
 }
+
+void setupBuffers()
+{
+    // Initialize the receive and transmit buffers.
+    initBuffer(&_recvBuffer, RECV_SIZE);
+}
+
+
 
 // Start the serial connection. For now we are using
 // Arduino wiring and this function is empty. We will
@@ -349,7 +368,13 @@ void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
   // later on.
-  
+  UCSR0B = 0b10011000;
+}
+
+ISR(USART_RX_vect) {
+    // Write received data
+    unsigned char data = UDR0;
+    writeBuffer(&_recvBuffer, data);
 }
 
 // Read the serial port. Returns the read character in
@@ -359,12 +384,23 @@ void startSerial()
 int readSerial(char *buffer)
 {
 
-  int count=0;
+    /*
+    int count=0;
+    while(Serial.available())
+      buffer[count++] = Serial.read();
+    return count;
+    */
 
-  while(Serial.available())
-    buffer[count++] = Serial.read();
+    int count = 0;
+    TBufferResult result;
 
-  return count;
+    do {
+        result = readBuffer(&_recvBuffer, &basket[count]);
+        if (result == PACKET_OK)
+            count++;
+    } while (result == PACKET_OK);
+
+    return count;
 }
 
 // Write to the serial port. Replaced later with
@@ -372,7 +408,13 @@ int readSerial(char *buffer)
 
 void writeSerial(const char *buffer, int len)
 {
-  Serial.write(buffer, len);
+    //Serial.write(buffer, len);
+
+    while (len--) {
+        while ((UCSR0A & 0b00100000) == 0);
+        UDR0 = *basket;
+        basket++;
+    }
 }
 
 /*
@@ -391,15 +433,45 @@ void setupMotors()
    *    B1IN - Pin 10, PB2, OC1B
    *    B2In - pIN 11, PB3, OC2A
    */
+ 
+ //Bare-metal
+ //Set Pin5 and Pin6 as output
+ DDRD |= (PIN6 | PIN5);
+ 
+ //Setup PWM
+ TCNT0 = 0;
+ TIMSK0 |= 0b110; //OCIEA = 1, OCIEB = 1
+ OCR0A = 128;
+ OCR0B = 128;
+ TCCR0B = 0b00000011; //clk64
 }
 
 // Start the PWM for Alex's motors.
 // We will implement this later. For now it is
 // blank.
-void startMotors()
+//void startMotors()
+void right_motor_forward()
 {
-  
+ TCCR0A = 0b10000001;
 }
+
+void right_motor_reverse()
+{
+ TCCR0A = 0b00100001;
+}
+
+void left_motor_forward()
+{
+ TCCR0A = 0b01000001;
+}
+
+void left_motor_reverse()
+{
+ TCCR0A = 0b00010001;
+}
+
+ISR(TIMER0_COMPA_VECT){}
+ISR(TIMER0_COMPB_VECT){}
 
 // Convert percentages to PWM values
 int pwmVal(float speed)
@@ -549,10 +621,14 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  analogWrite(LF, val);
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, 0);
-  analogWrite(RR, 0);
+  //analogWrite(LF, val);
+  //analogWrite(RF, curr_pwm);
+  //analogWrite(LR, 0);
+  //analogWrite(RR, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm';
+ right_motor_forward();
+ left_motor_forward();
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -576,11 +652,14 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, 0);
-  analogWrite(RF, 0);
-
+  //analogWrite(LR, val);
+  //analogWrite(RR, curr_pwm);
+  //analogWrite(LF, 0);
+  //analogWrite(RF, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm';
+ right_motor_reverse();
+ left_motor_reverse();
   
 }
 
@@ -609,11 +688,14 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, val);
-  analogWrite(RR, 0);
-  analogWrite(LF, 0);
-
+  //analogWrite(RF, curr_pwm);
+  //analogWrite(LR, val);
+  //analogWrite(RR, 0);
+  //analogWrite(LF, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm';
+ right_motor_forward();
+ left_motor_reverse();
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -635,11 +717,14 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, val);
-  analogWrite(RF, 0);
-  analogWrite(LR, 0);
- 
+  //analogWrite(RR, curr_pwm);
+  //analogWrite(LF, val);
+  //analogWrite(RF, 0);
+  //analogWrite(LR, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm';
+ right_motor_reverse();
+ left_motor_forward();
 }
     
 
@@ -647,11 +732,11 @@ void right(float ang, float speed)
 void stop()
 {
   dir = STOP;
-  analogWrite(LF, 0);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
-  analogWrite(RR, 0);
- 
+  //analogWrite(LF, 0);
+  //analogWrite(LR, 0);
+  //analogWrite(RF, 0);
+  //analogWrite(RR, 0);
+ TCCR0A = 0b00000001;
 }
 
 /*
