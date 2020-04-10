@@ -355,6 +355,9 @@ void sendCommand(char ch, void* conn)
 		switch (mode) {
 		case 0:
 				endwin();
+				printf("###################################\r\n");
+				printf("## Welcome to Alex's TLS Client! ##\r\n");
+				printf("###################################\r\r\n\n");
 				printf("Command (p=toggle to easy mode, f=forward, b=reverse, l=turn left, r=turn right, x=stop, c=clear stats, g=get stats q=exit)\n\r");
 				printf("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n\r");
 				scanf("%c", &ch);

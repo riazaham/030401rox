@@ -826,6 +826,7 @@ void setup() {
   AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
   AlexCirc = PI * AlexDiagonal;
   sei();
+  waitForHello();
 
 }
 
