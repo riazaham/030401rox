@@ -3,6 +3,7 @@
 #include <avr/sleep.h> 
 #include "packet.h"
 #include "constants.h"
+#include "buffer.h"
 #include <math.h>
 
 #define _STOP 0
@@ -35,8 +36,6 @@
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
 #define RECV_SIZE      128
-#define PIN6 (1 << 6)
-#define PIN5 (1 << 5)
 
 static TBuffer _recvBuffer;
 
@@ -368,7 +367,7 @@ void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
   // later on.
-  UCSR0B = 0b10011000;
+  UCSR0B = 0b10111000;
 }
 
 ISR(USART_RX_vect) {
@@ -381,7 +380,7 @@ ISR(USART_RX_vect) {
 // ch if available. Also returns TRUE if ch is valid. 
 // This will be replaced later with bare-metal code.
 
-int readSerial(char *buffer)
+int readSerial(unsigned char* line)
 {
 
     /*
@@ -389,16 +388,17 @@ int readSerial(char *buffer)
     while(Serial.available())
       buffer[count++] = Serial.read();
     return count;
-    */
 
+    */
     int count = 0;
+
     TBufferResult result;
 
     do {
-        result = readBuffer(&_recvBuffer, &basket[count]);
-        if (result == PACKET_OK)
+        result = readBuffer(&_recvBuffer, &line[count]);
+        if (result == BUFFER_OK)
             count++;
-    } while (result == PACKET_OK);
+    } while (result == BUFFER_OK);
 
     return count;
 }
@@ -406,15 +406,23 @@ int readSerial(char *buffer)
 // Write to the serial port. Replaced later with
 // bare-metal code
 
-void writeSerial(const char *buffer, int len)
-{
+void writeSerial(const unsigned char* line, int len) {
     //Serial.write(buffer, len);
-
+    
+    /*
     while (len--) {
         while ((UCSR0A & 0b00100000) == 0);
-        UDR0 = *basket;
-        basket++;
+        UDR0 = *line;
+        line++;
     }
+    */
+   TResult result = BUFFER_OK;
+   for(int i = 0; i < len && result == BUFFER_OK; i++)
+   {
+    result = writeBuffer(&_xmitBuffer, line[i]);
+   }
+ UDR0 = line[0];
+ UCSR0B |= 0b00100000;
 }
 
 /*
@@ -436,7 +444,7 @@ void setupMotors()
  
  //Bare-metal
  //Set Pin5 and Pin6 as output
- DDRD |= (PIN6 | PIN5);
+ DDRD |= ((1 << PIN6) | (1 << PIN5));
  
  //Setup PWM
  TCNT0 = 0;
@@ -470,8 +478,8 @@ void left_motor_reverse()
  TCCR0A = 0b00010001;
 }
 
-ISR(TIMER0_COMPA_VECT){}
-ISR(TIMER0_COMPB_VECT){}
+ISR(TIMER0_COMPA_vect){}
+ISR(TIMER0_COMPB_vect){}
 
 // Convert percentages to PWM values
 int pwmVal(float speed)
@@ -532,7 +540,10 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        //analogWrite(RF, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_forward();
       }
     break;
 
@@ -552,7 +563,10 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        //analogWrite(RR, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_reverse();
       }
     break;
 
@@ -571,7 +585,10 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        //analogWrite(RR, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_reverse();
       }
     break;
 
@@ -590,7 +607,10 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        //analogWrite(RF, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_forward();
       }
     break;
 
@@ -626,7 +646,7 @@ void forward(float dist, float speed)
   //analogWrite(LR, 0);
   //analogWrite(RR, 0);
  OCR0A = val;
- OCR0B = curr_pwm';
+ OCR0B = curr_pwm;
  right_motor_forward();
  left_motor_forward();
 }
@@ -657,7 +677,7 @@ void reverse(float dist, float speed)
   //analogWrite(LF, 0);
   //analogWrite(RF, 0);
  OCR0A = val;
- OCR0B = curr_pwm';
+ OCR0B = curr_pwm;
  right_motor_reverse();
  left_motor_reverse();
   
@@ -693,7 +713,7 @@ void left(float ang, float speed)
   //analogWrite(RR, 0);
   //analogWrite(LF, 0);
  OCR0A = val;
- OCR0B = curr_pwm';
+ OCR0B = curr_pwm;
  right_motor_forward();
  left_motor_reverse();
 }
@@ -722,7 +742,7 @@ void right(float ang, float speed)
   //analogWrite(RF, 0);
   //analogWrite(LR, 0);
  OCR0A = val;
- OCR0B = curr_pwm';
+ OCR0B = curr_pwm;
  right_motor_reverse();
  left_motor_forward();
 }
@@ -903,7 +923,7 @@ void setup() {
   setupSerial();
   startSerial();
   setupMotors();
-  startMotors();
+  //startMotors();
   enablePullups();
   initializeState();
   setupPowerSaving();
