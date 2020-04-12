@@ -1,8 +1,8 @@
-
 #include <serialize.h>
 #include <avr/sleep.h> 
 #include "packet.h"
 #include "constants.h"
+#include "buffer.h"
 #include <math.h>
 
 #define _STOP 0
@@ -22,66 +22,6 @@
 #define SMCR_IDLE_MODE_MASK     0b11110001 
 //#define PIN5 0b00010000;/
 
-void WDT_off(void) 
-{ 
-/* Global interrupt should be turned OFF here if not already done so */ 
- 
-/* Clear WDRF in MCUSR */ 
-MCUSR &= ~(1<<WDRF); 
- 
-/* Write logical one to WDCE and WDE */ 
-/* Keep old prescaler setting to prevent unintentional 
-time-out */ 
-WDTCSR |= (1<<WDCE) | (1<<WDE); 
- 
-/* Turn off WDT */ 
-WDTCSR = 0x00; 
- 
-/* Global interrupt should be turned ON here if subsequent operations after calling this function do 
-not require turning off global interrupt */ 
-} 
-
-void setupPowerSaving() 
-{ 
-  // Turn off the Watchdog Timer   
-  WDT_off();
-  // Modify PRR to shut down TWI 
-  PRR |= PRR_TWI_MASK; 
-  // Modify PRR to shut down SPI 
-  PRR |= PRR_SPI_MASK;
-  // Modify ADCSRA to disable ADC,  
-  // then modify PRR to shut down ADC
-  ADCSRA &= ~ADCSRA_ADC_MASK;
-  PRR |= PRR_ADC_MASK;
-  // Set the SMCR to choose the IDLE sleep mode   // Do not set the Sleep Enable (SE) bit yet 
-  SMCR &= SMCR_IDLE_MODE_MASK;
-  // Set Port B Pin 5 as output pin, then write a logic LOW   // to it so that the LED tied to Arduino's Pin 13 is OFF. 
-  DDRB |= (1<<5);
-  PORTB &= ~(1<<5);
-} 
-
-void putArduinoToIdle() 
-{ 
-  // Modify PRR to shut down TIMER 0, 1, and 2 
-  PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
-
-  
-  // Modify SE bit in SMCR to enable (i.e., allow) sleep 
-  SMCR |= SMCR_SLEEP_ENABLE_MASK;
-  // The following function puts ATmega328P’s MCU into sleep; 
-  // it wakes up from sleep when USART serial data arrives 
-  sleep_cpu(); 
-  
-  // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
-  SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
-  // Modify PRR to power up TIMER 0, 1, and 2 
-  PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
-
-} 
- 
-
-
-
 /*
  * Alex's configuration constants
  */
@@ -93,6 +33,10 @@ void putArduinoToIdle()
  //Pin 6: OC1B (PD6) AIN2 AOUT2 BLACK LEFT MOTOR
  //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
+
+#define RECV_SIZE      128
+
+static TBuffer _recvBuffer;
 
 
 typedef enum{
@@ -184,7 +128,6 @@ float AlexCirc = 0.0;
 double tickDifference = 0.0;
 double curr_pwm = 0.0;
 
-int kval[10] = {5,5,5,5,5};
 
 /*
  * 
@@ -209,6 +152,7 @@ TResult readPacket(TPacket *packet)
     if(len == 0)
       return PACKET_INCOMPLETE;
     else
+      printdb("Buffer is read\n");
       return deserialize(buffer, len, packet);
     
 }
@@ -399,8 +343,21 @@ ISR(INT1_vect){
 void setupSerial()
 {
   // To replace later with bare-metal.
-  Serial.begin(9600);
+  //Serial.begin(9600);
+  UBRR0L = 103;
+  UBRR0H = 0;
+
+  UCSR0C = 0b00000110; 
+  UCSR0A = 0;
 }
+
+void setupBuffers()
+{
+    // Initialize the receive and transmit buffers.
+    initBuffer(&_recvBuffer, RECV_SIZE);
+}
+
+
 
 // Start the serial connection. For now we are using
 // Arduino wiring and this function is empty. We will
@@ -410,30 +367,53 @@ void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
   // later on.
-  
+  UCSR0B = 0b10011000;
+}
+
+ISR(USART_RX_vect) {
+    // Write received data
+    unsigned char data = UDR0;
+    writeBuffer(&_recvBuffer, data);
 }
 
 // Read the serial port. Returns the read character in
 // ch if available. Also returns TRUE if ch is valid. 
 // This will be replaced later with bare-metal code.
 
-int readSerial(char *buffer)
+int readSerial(unsigned char* line)
 {
 
-  int count=0;
+    /*
+    int count=0;
+    while(Serial.available())
+      buffer[count++] = Serial.read();
+    return count;
 
-  while(Serial.available())
-    buffer[count++] = Serial.read();
+    */
+    int count = 0;
 
-  return count;
+    TBufferResult result;
+
+    do {
+        result = readBuffer(&_recvBuffer, &line[count]);
+        if (result == BUFFER_OK)
+            count++;
+    } while (result == BUFFER_OK);
+
+    return count;
 }
 
 // Write to the serial port. Replaced later with
 // bare-metal code
 
-void writeSerial(const char *buffer, int len)
-{
-  Serial.write(buffer, len);
+void writeSerial(const unsigned char* line, int len) {
+    //Serial.write(buffer, len);
+
+    while (len--) {
+        while ((UCSR0A & 0b00100000) == 0);
+        UDR0 = *line;
+        line++;
+    }
 }
 
 /*
@@ -452,15 +432,45 @@ void setupMotors()
    *    B1IN - Pin 10, PB2, OC1B
    *    B2In - pIN 11, PB3, OC2A
    */
+ 
+ //Bare-metal
+ //Set Pin5 and Pin6 as output
+ DDRD |= ((1 << PIN6) | (1 << PIN5));
+ 
+ //Setup PWM
+ TCNT0 = 0;
+ TIMSK0 |= 0b110; //OCIEA = 1, OCIEB = 1
+ OCR0A = 128;
+ OCR0B = 128;
+ TCCR0B = 0b00000011; //clk64
 }
 
 // Start the PWM for Alex's motors.
 // We will implement this later. For now it is
 // blank.
-void startMotors()
+//void startMotors()
+void right_motor_forward()
 {
-  
+ TCCR0A = 0b10000001;
 }
+
+void right_motor_reverse()
+{
+ TCCR0A = 0b00100001;
+}
+
+void left_motor_forward()
+{
+ TCCR0A = 0b01000001;
+}
+
+void left_motor_reverse()
+{
+ TCCR0A = 0b00010001;
+}
+
+ISR(TIMER0_COMPA_vect){}
+ISR(TIMER0_COMPB_vect){}
 
 // Convert percentages to PWM values
 int pwmVal(float speed)
@@ -481,7 +491,7 @@ int pwmVal(float speed)
 // continue moving forward indefinitely.
 
 
-void dbprint(char *format, ...) {
+void printdb(char *format, ...) {
   va_list args;
   char buffer[128];
 
@@ -492,7 +502,11 @@ void dbprint(char *format, ...) {
 
 
 
-
+//Calibrates the pwm value supplied to the slave motor so that the robot can move straight as desired.
+//Error is calculated by difference in rate of change of left ticks and that of right ticks.
+//A constant proportionate to the error value is then summed with the slave motor's current pwm value,
+//which can increase and decrease depending on value of error.
+//The proportion of the constant to the error is obtained via exhaustive trial and error.
 
 void calibrateMotors(){
   double error;
@@ -500,11 +514,6 @@ void calibrateMotors(){
   int curr_right = 0;
   
   double val = curr_pwm;
-
-  
-  _count++;
-  //dbprint("%d, best count is %d\n", millis(), _count);
-  
   switch(dir){
     case FORWARD:
       
@@ -514,14 +523,18 @@ void calibrateMotors(){
       curr_left = leftForwardTicks - curr_left;
       curr_right = rightForwardTicks - curr_right;
       error = curr_left - curr_right;
-      //dbprint("time in millis() is %d\n", millis());
       
       if(error){
         val += error*20;
+
+        //PWM value supplied to the motors cannot be out of range of [0, 255].
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        //analogWrite(RF, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_forward();
       }
     break;
 
@@ -531,48 +544,64 @@ void calibrateMotors(){
       delayMicroseconds(50000);
       curr_left = leftReverseTicks - curr_left;
       curr_right = rightReverseTicks - curr_right;
+      
       error = curr_left - curr_right;
       
       if(error){
         val += error*20;
+
+        //PWM value supplied to the motors cannot be out of range of [0, 255].
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        //analogWrite(RR, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_reverse();
       }
     break;
 
     case RIGHT:
       curr_left = leftForwardTicksTurns;
       curr_right = rightReverseTicksTurns;
-      delayMicroseconds(5000);
+      delayMicroseconds(50000);
       curr_left = leftForwardTicksTurns - curr_left;
       curr_right = rightReverseTicksTurns - curr_right;
       error = curr_left - curr_right;
       
       if(error){
         val += error*20;
+
+        //PWM value supplied to the motors cannot be out of range of [0, 255].
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        //analogWrite(RR, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_reverse();
       }
     break;
 
     case LEFT:
       curr_left = leftReverseTicksTurns;
       curr_right = rightForwardTicksTurns;
-      delayMicroseconds(5000);
+      delayMicroseconds(50000);
       curr_left = leftReverseTicksTurns - curr_left;
       curr_right = rightForwardTicksTurns - curr_right;
       
       error = curr_left - curr_right;
       if(error){
         val += error*20;
+
+        //PWM value supplied to the motors cannot be out of range of [0, 255].
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        //analogWrite(RF, curr_pwm);
+       //Bare metal
+       OCR0B = curr_pwm;
+       right_motor_forward();
       }
     break;
 
@@ -582,14 +611,6 @@ void calibrateMotors(){
   }
   
 }
-
-
-
-
-
-
-
-
 
 
 void forward(float dist, float speed)
@@ -611,10 +632,14 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  analogWrite(LF, val);
-  analogWrite(RF, val);
-  analogWrite(LR, 0);
-  analogWrite(RR, 0);
+  //analogWrite(LF, val);
+  //analogWrite(RF, curr_pwm);
+  //analogWrite(LR, 0);
+  //analogWrite(RR, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm;
+ right_motor_forward();
+ left_motor_forward();
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -638,11 +663,14 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, 0);
-  analogWrite(RF, 0);
-
+  //analogWrite(LR, val);
+  //analogWrite(RR, curr_pwm);
+  //analogWrite(LF, 0);
+  //analogWrite(RF, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm;
+ right_motor_reverse();
+ left_motor_reverse();
   
 }
 
@@ -661,7 +689,7 @@ void left(float ang, float speed)
 {
   dir = LEFT;
   int val = pwmVal(speed);
-  curr_pwm = (1*val > 255)?255: 1*val;
+  curr_pwm = (1.36*val > 255)?255: 1.36*val;
   if(ang == 0) deltaTicks = 9999999;
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
@@ -671,11 +699,14 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, val);
-  analogWrite(RR, 0);
-  analogWrite(LF, 0);
-
+  //analogWrite(RF, curr_pwm);
+  //analogWrite(LR, val);
+  //analogWrite(RR, 0);
+  //analogWrite(LF, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm;
+ right_motor_forward();
+ left_motor_reverse();
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -697,11 +728,14 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, val);
-  analogWrite(RF, 0);
-  analogWrite(LR, 0);
- 
+  //analogWrite(RR, curr_pwm);
+  //analogWrite(LF, val);
+  //analogWrite(RF, 0);
+  //analogWrite(LR, 0);
+ OCR0A = val;
+ OCR0B = curr_pwm;
+ right_motor_reverse();
+ left_motor_forward();
 }
     
 
@@ -709,11 +743,11 @@ void right(float ang, float speed)
 void stop()
 {
   dir = STOP;
-  analogWrite(LF, 0);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
-  analogWrite(RR, 0);
- 
+  //analogWrite(LF, 0);
+  //analogWrite(LR, 0);
+  //analogWrite(RF, 0);
+  //analogWrite(RR, 0);
+ TCCR0A = 0b00000001;
 }
 
 /*
@@ -880,7 +914,7 @@ void setup() {
   setupSerial();
   startSerial();
   setupMotors();
-  startMotors();
+  //startMotors();
   enablePullups();
   initializeState();
   setupPowerSaving();
@@ -893,8 +927,12 @@ void setup() {
 
 void handlePacket(TPacket *packet)
 {
+     printdb("Packet is ");
+    printdb(packet->packetType);
+    printdb("\n");
   switch(packet->packetType)
   {
+
     case PACKET_TYPE_COMMAND:
       handleCommand(packet);
       break;
@@ -912,6 +950,65 @@ void handlePacket(TPacket *packet)
       break;
   }
 }
+
+void WDT_off(void) 
+{ 
+/* Global interrupt should be turned OFF here if not already done so */ 
+ 
+/* Clear WDRF in MCUSR */ 
+MCUSR &= ~(1<<WDRF); 
+ 
+/* Write logical one to WDCE and WDE */ 
+/* Keep old prescaler setting to prevent unintentional 
+time-out */ 
+WDTCSR |= (1<<WDCE) | (1<<WDE); 
+ 
+/* Turn off WDT */ 
+WDTCSR = 0x00; 
+ 
+/* Global interrupt should be turned ON here if subsequent operations after calling this function do 
+not require turning off global interrupt */ 
+} 
+
+void setupPowerSaving() 
+{ 
+  // Turn off the Watchdog Timer   
+  WDT_off();
+  // Modify PRR to shut down TWI 
+  PRR |= PRR_TWI_MASK; 
+  // Modify PRR to shut down SPI 
+  PRR |= PRR_SPI_MASK;
+  // Modify ADCSRA to disable ADC,  
+  // then modify PRR to shut down ADC
+  ADCSRA &= ~ADCSRA_ADC_MASK;
+  PRR |= PRR_ADC_MASK;
+  // Set the SMCR to choose the IDLE sleep mode   // Do not set the Sleep Enable (SE) bit yet 
+  SMCR &= SMCR_IDLE_MODE_MASK;
+  // Set Port B Pin 5 as output pin, then write a logic LOW   // to it so that the LED tied to Arduino's Pin 13 is OFF. 
+  DDRB |= (1<<5);
+  PORTB &= ~(1<<5);
+} 
+
+void putArduinoToIdle() 
+{ 
+  // Modify PRR to shut down TIMER 0, 1, and 2 
+  PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
+
+  
+  // Modify SE bit in SMCR to enable (i.e., allow) sleep 
+  SMCR |= SMCR_SLEEP_ENABLE_MASK;
+  // The following function puts ATmega328P’s MCU into sleep; 
+  // it wakes up from sleep when USART serial data arrives 
+  sleep_cpu(); 
+  
+  // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
+  SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
+  // Modify PRR to power up TIMER 0, 1, and 2 
+  PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
+
+} 
+ 
+
 
 void loop() {
   
@@ -943,7 +1040,8 @@ void loop() {
       } 
   }
 
-
+  //Every round of routine, adjustments will be made to the slave motor such that the speed will be closer and closer 
+  //to the master motor.
   calibrateMotors();
   
   
@@ -1007,5 +1105,5 @@ void loop() {
       }
     }
   }
-  
 }
+ 
