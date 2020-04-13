@@ -38,7 +38,7 @@
 #define RECV_SIZE      128
 
 static TBuffer _recvBuffer;
-
+static TBuffer _xmitBuffer;
 
 typedef enum{
   STOP = 0,
@@ -145,7 +145,7 @@ TResult readPacket(TPacket *packet)
     // deserializes it.Returns deserialized
     // data in "packet".
     
-    char buffer[PACKET_SIZE];
+    unsigned char buffer[PACKET_SIZE];
     int len;
 
     len = readSerial(buffer);
@@ -249,7 +249,7 @@ void sendResponse(TPacket *packet)
 {
   // Takes a packet, serializes it then sends it out
   // over the serial port.
-  char buffer[PACKET_SIZE];
+  unsigned char buffer[PACKET_SIZE];
   int len;
 
   len = serialize(buffer, packet, sizeof(TPacket));
@@ -278,8 +278,6 @@ void leftISR()
   if(dir == RIGHT) leftForwardTicksTurns++;
   
   else if(dir == LEFT) leftReverseTicksTurns++;
-
-  
   
   else if(dir == FORWARD) {
     forwardDist = (unsigned long)((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
@@ -328,9 +326,6 @@ ISR(INT1_vect){
   rightISR();
 }
 
-
-
-
 // Implement INT0 and INT1 ISRs above.
 
 /*
@@ -355,9 +350,8 @@ void setupBuffers()
 {
     // Initialize the receive and transmit buffers.
     initBuffer(&_recvBuffer, RECV_SIZE);
+    initBuffer(&_xmitBuffer, RECV_SIZE);
 }
-
-
 
 // Start the serial connection. For now we are using
 // Arduino wiring and this function is empty. We will
@@ -371,6 +365,10 @@ void startSerial()
 }
 
 ISR(USART_RX_vect) {
+  
+    //Temporary code -> Move robot if a command is received (To check serial comms)
+    forward(50,50);
+ 
     // Write received data
     unsigned char data = UDR0;
     writeBuffer(&_recvBuffer, data);
@@ -406,7 +404,7 @@ int readSerial(unsigned char* line)
 // Write to the serial port. Replaced later with
 // bare-metal code
 
-void writeSerial(const unsigned char* line, int len) {
+void writeSerial(unsigned char* line, int len) {
     //Serial.write(buffer, len);
     
     /*
@@ -416,7 +414,7 @@ void writeSerial(const unsigned char* line, int len) {
         line++;
     }
     */
-   TResult result = BUFFER_OK;
+   TBufferResult result = BUFFER_OK;
    for(int i = 0; i < len && result == BUFFER_OK; i++)
    {
     result = writeBuffer(&_xmitBuffer, line[i]);
