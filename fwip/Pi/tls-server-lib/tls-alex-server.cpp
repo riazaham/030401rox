@@ -6,7 +6,7 @@
 #include "serial.h"
 #include "serialize.h"
 #include <unistd.h>
-#include <fctnl.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
