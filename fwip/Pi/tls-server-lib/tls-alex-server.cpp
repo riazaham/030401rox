@@ -108,7 +108,7 @@ void rplidarSleep(){
 	int sender_fd, ret;
 	toggle = 1-toggle;
 	buffer[0] = toggle ? 's': 'x';
-	ret = chdir("/home/pi/Desktop/");
+	ret = chdir("/home/030401rox/Final\ Alex\ Firmware/Pi");
 	sender_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
 	write(sender_fd, buffer, 1);
 }
