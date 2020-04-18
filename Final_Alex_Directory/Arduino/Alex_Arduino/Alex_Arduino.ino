@@ -112,6 +112,7 @@ unsigned long deltaDist;
 unsigned long newDist;
 unsigned long deltaTicks;
 unsigned long targetTicks;
+int ok_flag = 1;
 
 volatile int _count = 0;
 
@@ -186,6 +187,7 @@ void sendCommand(int command)
       case COMMAND_RPLIDAR_SLEEP:
         commandPacket.command = command;
         sendResponse(&commandPacket);
+        ok_flag = 0;
         break;
   }
 }
@@ -386,6 +388,7 @@ int readSerial(char *buffer)
 void writeSerial(const char *buffer, int len)
 {
   Serial.write(buffer, len);
+  ok_flag = 1;
 }
 
 /*
