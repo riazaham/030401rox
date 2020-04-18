@@ -106,10 +106,12 @@ void handleResponse(TPacket *packet)
 
 void rplidarSleep(){
 	int sender_fd, ret;
+	//Every time user presses corresponding key, rplidar should toggle between sleep mode and active mode
 	toggle = 1-toggle;
 	buffer[0] = toggle ? 's': 'x';
-	ret = chdir("/home/030401rox/Final\ Alex\ Firmware/Pi");
+	ret = chdir("/home/030401rox/Final\ Alex\ Firmware/Pi/slam/src/rplidar_ros/");
 	sender_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
+	//Write to intermediate file "stop.bin" to toggle operating mode of LIDAR
 	write(sender_fd, buffer, 1);
 }
 

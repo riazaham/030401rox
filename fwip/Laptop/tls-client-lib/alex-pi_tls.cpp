@@ -323,7 +323,7 @@ void sendCommand(char ch, void* conn)
 		int count = 0;
 		while (1) {
 			if (command == 'a' || command == 'd') {
-				command = count? command: 's';
+				command = count? command: 'x';
 				count = 1-count;
 				usleep(100000);
 			}
@@ -365,9 +365,11 @@ void sendCommand(char ch, void* conn)
 		switch (mode) {
 		case 0:
 				endwin();
-				printf("Command (p=toggle to easy mode, f=forward, b=reverse, l=turn left, r=turn right, x=stop, c=clear stats, g=get stats q=exit)\n\r");
-				printf("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, x = stop, c=clear stats, g=get stats, q=exit)\n\r");
-				scanf("%c", &ch);
+                printf("###################################\r\n");
+				printf("## Welcome to Alex's TLS Client! ##\r\n");
+				printf("###################################\r\r\n\n");
+				printf("Command (p=toggle to easy mode, f=forward, b=reverse, l=turn left, r=turn right, x=stop, c=clear stats, g=get stats, q=exit, z=put rplidar to sleep!)\n\r");
+				printf("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, other commands remain the same!)\n\r");
 				// Purge extraneous characters from input stream
 				flushInput();
 				sendCommand(ch, conn);

@@ -184,12 +184,21 @@ bool start_motor(std_srvs::Empty::Request &req,
 	return true;
 }
 
+
+///////////////////////////////
+/// RPLIDAR MOTOR-OFF CODE ////
+///////////////////////////////
+
 int pwmgt_motorStop(){
 	int ret, receiver_fd;
 	char s[50];
-	ret = chdir("/home/pi/Desktop/");
+	//Change working directory to access stop.bin 
+	ret = chdir("/03-04-01/Final\ Alex\ Firmware/Pi/slam/src/rplidar_ros/");
 	//printf("%s\n", getcwd(s, 50));
+	//Set file description to binary file stop.bin to write to
 	receiver_fd = open("stop.bin", O_RDWR | O_CREAT, 0777);
+	//File should only have one letter: 's' and 'x'. This depends
+	//On the toggle mode as set by operator at TLS-client
 	read(receiver_fd, s, 1);
 	//printf("s is %c\n", s[0]);
 	if(s[0] == 's') return 1;
@@ -266,11 +275,12 @@ int main(int argc, char * argv[]) {
 		scan_duration = (end_scan_time - start_scan_time).toSec() * 1e-3;
 
 		if(pwmgt_motorStop()){
-		//	printf("Motor stopped!");
+			//Motor stops moving
 			drv->stopMotor();
 		}
 
 		else{
+			//Motor starts moving
 			drv->startMotor();
 			if (op_result == RESULT_OK) {
 				op_result = drv->ascendScanData(nodes, count);
