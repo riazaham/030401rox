@@ -49,7 +49,8 @@ static void *tls_conn = NULL;
 
 	*/
 
-char toggle[1] = {'0'};
+int toggle = 0;
+char buffer[1];
 
 // Prototype for sendNetworkData
 void sendNetworkData(const char *, int);
@@ -105,10 +106,11 @@ void handleResponse(TPacket *packet)
 
 void rplidarSleep(){
 	int sender_fd, ret;
-	toggle[0] = 1-(int)toggle[0];
+	toggle = 1-toggle;
+	buffer[0] = toggle ? 's': 'x';
 	ret = chdir("/home/pi/Desktop/");
 	sender_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
-	write(sender_fd, toggle, 1);
+	write(sender_fd, buffer, 1);
 }
 
 void handleCommand(TPacket *packet)

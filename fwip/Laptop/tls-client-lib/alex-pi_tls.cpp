@@ -222,6 +222,13 @@ void sendCommand(char ch, void* conn)
 	case 'C':
 	case 'g':
 	case 'G':
+		params[0]=0;
+		params[1]=0;
+		memcpy(&buffer[2], params, sizeof(params));
+		buffer[1] = ch;
+		sendData(conn, buffer, sizeof(buffer));
+	break;
+
 	case 'z':
 	case 'Z':
 		params[0]=0;
@@ -229,6 +236,7 @@ void sendCommand(char ch, void* conn)
 		memcpy(&buffer[2], params, sizeof(params));
 		buffer[1] = ch;
 		sendData(conn, buffer, sizeof(buffer));
+		ok_flag = 1;
 	break;
 
 	case 'x':
