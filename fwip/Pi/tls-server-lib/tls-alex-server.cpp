@@ -49,7 +49,7 @@ static void *tls_conn = NULL;
 
 	*/
 
-char toggle[0] = {'0'};
+char toggle[0] = '0';
 
 // Prototype for sendNetworkData
 void sendNetworkData(const char *, int);
