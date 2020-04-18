@@ -178,6 +178,19 @@ void sendStatus()
   //
 }
 
+void sendCommand(int command)
+{
+  TPacket commandPacket;
+  commandPacket.packetType = PACKET_TYPE_COMMAND;
+  switch(command){
+      case COMMAND_RPLIDAR_SLEEP:
+        commandPacket.command = command;
+        sendResponse(&commandPacket);
+        break;
+  }
+}
+
+
 void sendMessage(const char *message)
 {
   // Sends text messages back to the Pi. Useful
@@ -899,7 +912,9 @@ void putArduinoToIdle()
   SMCR |= SMCR_SLEEP_ENABLE_MASK;
   // The following function puts ATmega328P’s MCU into sleep; 
   // it wakes up from sleep when USART serial data arrives 
+  sendCommand(COMMAND_RPLIDAR_SLEEP);
   sleep_cpu(); 
+  sendCommand(COMMAND_RPLIDAR_SLEEP);
   
   // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
   SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
