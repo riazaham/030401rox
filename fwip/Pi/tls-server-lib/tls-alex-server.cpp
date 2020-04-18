@@ -103,10 +103,18 @@ void handleResponse(TPacket *packet)
 	}
 }
 
+void rplidarSleep(){
+	int sender_fd, ret;
+	toggle = 1-toggle;
+	ret = chdir("/home/pi/Desktop/");
+	sender_fd = open("stop.bin", 0_RDWR|0_CREAT,0777);
+	write(sender_fd, (char)toggle, 1);
+}
+
 void handleCommand(TPacket *packet)
 {
 	switch(packet->command){
-		case RPLIDAR_SLEEP:
+		case COMMAND_RPLIDAR_SLEEP:
 				rplidarSleep();
 		break;
 	}
@@ -222,14 +230,6 @@ void sendNetworkData(const char *data, int len)
 		// Network is still active if we can write more then 0 bytes.
 		networkActive = (c > 0);
 	}
-}
-
-void rplidarSleep(){
-	int sender_fd, ret;
-	toggle = 1-toggle;
-	ret = chdir("/home/pi/Desktop/");
-	sender_fd = open("stop.bin", 0_RDWR|0_CREAT,0777);
-	write(sender_fd, (char)toggle, 1);
 }
 
 void handleCommand(void *conn, const char *buffer)
