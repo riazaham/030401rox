@@ -251,6 +251,11 @@ void handleCommand(void *conn, const char *buffer)
 	
 	switch(cmd)
 	{
+		case 'z':
+		case 'Z':
+			rplidarSleep();
+			break;
+
 		case 'f':
 		case 'F':
 			commandPacket.command = COMMAND_FORWARD;
