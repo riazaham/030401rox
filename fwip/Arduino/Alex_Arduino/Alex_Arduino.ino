@@ -904,6 +904,7 @@ void setupPowerSaving()
 
 void putArduinoToIdle() 
 { 
+  sendCommand(COMMAND_RPLIDAR_SLEEP);
   // Modify PRR to shut down TIMER 0, 1, and 2 
   PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
 
@@ -912,14 +913,12 @@ void putArduinoToIdle()
   SMCR |= SMCR_SLEEP_ENABLE_MASK;
   // The following function puts ATmega328P’s MCU into sleep; 
   // it wakes up from sleep when USART serial data arrives 
-  sendCommand(COMMAND_RPLIDAR_SLEEP);
   sleep_cpu(); 
-  sendCommand(COMMAND_RPLIDAR_SLEEP);
-  
   // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
   SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
   // Modify PRR to power up TIMER 0, 1, and 2 
   PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
+  sendCommand(COMMAND_RPLIDAR_SLEEP);                                                                                                                                                        
 
 } 
  
