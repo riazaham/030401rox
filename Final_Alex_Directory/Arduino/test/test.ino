@@ -447,6 +447,7 @@ void setupMotors() {
     //TCN1
     TCNT1 = 0;
     OCR1BL = 50;
+    OCR1BH = 0;
     TIMSK1 |= 0b110;
     TCCR1B = 0b00000011;
 
@@ -474,9 +475,9 @@ void _analogWrite(int dir, int pwm){
 
 
 void startMotors() {
-    TCCR0A = 0b01010011;
-    TCCR1A = 0b00010011;
-    TCCR2A = 0b01000011;
+    TCCR0A = 0b10100001;
+    TCCR1A = 0b00100001;
+    TCCR2A = 0b10000001;
 }
 
 /*
@@ -526,7 +527,7 @@ int pwmVal(float speed)
   if(speed > 100.0)
     speed = 100.0;
 
-  return (int) ((speed / 100.0) * 255.0);
+  return ((float)speed / 100.0) * 255.0;
 }
 
 // Move Alex forward "dist" cm at speed "speed".
