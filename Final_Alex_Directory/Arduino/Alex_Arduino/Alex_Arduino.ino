@@ -97,7 +97,13 @@ volatile unsigned long _leftReverseTicksTurns;
 volatile unsigned long _rightForwardTicksTurns;
 volatile unsigned long _rightReverseTicksTurns; 
 
-
+//Dummy temp OCRnX values
+volatile unsigned int _OCR0A = 0; 
+volatile unsigned int _OCR0B = 0; 
+volatile unsigned int _OCR1A = 0; 
+volatile unsigned int _OCR1BL = 0; 
+volatile unsigned int _OCR2A = 0; 
+volatile unsigned int _OCR2B = 0; 
 
 // Store the revolutions on Alex's left
 // and right wheels
@@ -272,6 +278,7 @@ void sendResponse(TPacket *packet)
  * pullup resistors.
  * 
  */
+ 
 // Enable pull up resistors on pins 2 and 3
 void enablePullups()
 {
@@ -286,11 +293,8 @@ void enablePullups()
 void leftISR()
 {
   if(dir == RIGHT) leftForwardTicksTurns++;
-  
   else if(dir == LEFT) leftReverseTicksTurns++;
 
-  
-  
   else if(dir == FORWARD) {
     forwardDist = (unsigned long)((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
     leftForwardTicks++;
@@ -304,16 +308,10 @@ void leftISR()
 
 void rightISR()
 {
-
     if(dir == FORWARD) rightForwardTicks++; 
     else if (dir == BACKWARD) rightReverseTicks++; 
     else if (dir == RIGHT) rightReverseTicksTurns++; 
     else if (dir == LEFT) rightForwardTicksTurns++; 
-
-
-  //rightTicks++;
-  /*Serial.print("RIGHT: ");
-  Serial.println(rightTicks);*/
 }
 
 // Set up the external interrupt pins INT0 and INT1
@@ -322,7 +320,6 @@ void setupEINT()
 {
   cli();
   EICRA = 0b00001010; // falling edge
-//  DDRD &= 0b11110011;
   EIMSK |= 0b00000011; // activate
   sei();
   
@@ -407,6 +404,28 @@ void setupMotors()
    *    B1IN - Pin 10, PB2, OC1B
    *    B2In - pIN 11, PB3, OC2A
    */
+    DDRD |= 0b01100000; // Pin 5 and 6
+    DDRB |= 0b00001100; // Pin 9 and 10
+
+    //TCN0
+    TCNT0 = 0;
+    OCR0A = 0;
+    OCR0B = 0;
+    TIMSK0 |= 0b110;
+    TCCR0B = 0b00000011;
+
+    //TCN1
+    TCNT1 = 0;
+    OCR1BL = 0;
+    OCR1BH = 0;
+    TIMSK1 |= 0b110;
+    TCCR1B = 0b00000011;
+
+    //TCN2
+    TCNT2 = 0;
+    OCR2A = 0;
+    TIMSK2 |= 0b110;
+    TCCR2B = 0b00000011;
 }
 
 // Start the PWM for Alex's motors.
@@ -414,7 +433,37 @@ void setupMotors()
 // blank.
 void startMotors()
 {
-  
+    TCCR0A = 0b00000001;
+    TCCR1A = 0b00000001;
+    TCCR2A = 0b00000001;
+}
+
+//Substitute to analogWrite()
+//Controls Output Compare pins IO to produce
+//required motion.
+void _analogWrite(int dir, int pwm){
+  switch(dir){
+    case LF: 
+      if(pwm == 0) TCCR1A &= 0b11001111;
+      else TCCR1A |= 0b00100000;
+      _OCR1BL = pwm;
+      break;
+    case RF:
+      if(pwm == 0) TCCR0A &= 0b00111111;
+      else TCCR0A |= 0b10000000;
+      _OCR0A = pwm;
+      break;
+    case LR:
+      if(pwm == 0) TCCR2A &= 0b00111111;
+      else TCCR2A |= 0b10000000;
+      _OCR2A = pwm;
+      break;
+    case RR:
+      if(pwm == 0) TCCR0A &= 0b11001111;
+      else TCCR0A |= 0b00100000;
+      _OCR0B = pwm;
+      break;
+  }
 }
 
 // Convert percentages to PWM values
@@ -476,7 +525,7 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        _analogWrite(RF, curr_pwm);
       }
     break;
 
@@ -496,7 +545,7 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        _analogWrite(RR, curr_pwm);
       }
     break;
 
@@ -515,7 +564,7 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RR, curr_pwm);
+        _analogWrite(RR, curr_pwm);
       }
     break;
 
@@ -534,7 +583,7 @@ void calibrateMotors(){
         curr_pwm = (val>255)?255:
                    (val < 0)?0:
                    val;
-        analogWrite(RF, curr_pwm);
+        _analogWrite(RF, curr_pwm);
       }
     break;
 
@@ -565,10 +614,10 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  analogWrite(LF, val);
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, 0);
-  analogWrite(RR, 0);
+  _analogWrite(LF, val);
+  _analogWrite(RF, curr_pwm);
+  _analogWrite(LR, 0);
+  _analogWrite(RR, 0);
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -592,10 +641,10 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, 0);
-  analogWrite(RF, 0);
+  _analogWrite(LR, val);
+  _analogWrite(RR, curr_pwm);
+  _analogWrite(LF, 0);
+  _analogWrite(RF, 0);
 
   
 }
@@ -625,10 +674,10 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, val);
-  analogWrite(RR, 0);
-  analogWrite(LF, 0);
+  _analogWrite(RF, curr_pwm);
+  _analogWrite(LR, val);
+  _analogWrite(RR, 0);
+  _analogWrite(LF, 0);
 
 }
 
@@ -651,10 +700,10 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, curr_pwm);
-  analogWrite(LF, val);
-  analogWrite(RF, 0);
-  analogWrite(LR, 0);
+  _analogWrite(RR, curr_pwm);
+  _analogWrite(LF, val);
+  _analogWrite(RF, 0);
+  _analogWrite(LR, 0);
  
 }
     
@@ -663,10 +712,10 @@ void right(float ang, float speed)
 void stop()
 {
   dir = STOP;
-  analogWrite(LF, 0);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
-  analogWrite(RR, 0);
+  _analogWrite(LF, 0);
+  _analogWrite(LR, 0);
+  _analogWrite(RF, 0);
+  _analogWrite(RR, 0);
  
 }
 
@@ -907,11 +956,10 @@ void setupPowerSaving()
 
 void putArduinoToIdle() 
 { 
+  while(!ok_flag);
   sendCommand(COMMAND_RPLIDAR_SLEEP);
   // Modify PRR to shut down TIMER 0, 1, and 2 
   PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
-
-  
   // Modify SE bit in SMCR to enable (i.e., allow) sleep 
   SMCR |= SMCR_SLEEP_ENABLE_MASK;
   // The following function puts ATmega328P’s MCU into sleep; 
@@ -921,6 +969,7 @@ void putArduinoToIdle()
   SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
   // Modify PRR to power up TIMER 0, 1, and 2 
   PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
+  while(!ok_flag);
   sendCommand(COMMAND_RPLIDAR_SLEEP);                                                                                                                                                        
 
 } 
