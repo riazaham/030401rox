@@ -442,18 +442,41 @@ void setupMotors() {
     OCR0A = 0;
     OCR0B = 0;
     TIMSK0 |= 0b110;
+    TCCR0B = 0b00000011;
 
     //TCN1
     TCNT1 = 0;
-    OCR1A = 0;
     OCR1B = 0;
     TIMSK1 |= 0b110;
+    TCCR1B = 0b00000011;
 
+    //TCN2
+    TCNT2 = 0;
+    OCR2A = 0;
+    TIMSK2 |= 0b110;
+    TCCR2B = 0b00000011;
 }
 
+void _analogWrite(int dir, double pwm){
+  switch(dir){
+    case LF: 
+      OCR1BL = pwm;
+    case RF:
+      OCR0B = pwm;
+    case LR:
+      OCR2A = pwm;
+    case RR:
+      OCR0B = pwm;
+  }
+}
+
+
+
+
 void startMotors() {
-    TCCR0B = 0b00000011;
-    TCCR1B = 0b00000011;
+    TCCR0A = 0b00000011;
+    TCCR1A = 0b00000011;
+    TCCR2A = 0b00000011;
 }
 
 
@@ -465,16 +488,16 @@ ISR(TIMER0_COMPB_vect) {
     OCR0B = pwm_LR;     
 }
 
-ISR(TIMER1_COMPA_vect) {
-    OCR1A = pwm_RF;     
-}
-
 ISR(TIMER1_COMPB_vect) {    
     OCR1B = pwm_RR;      
 }
 
+ISR(TIMER2_COMPA_vect) {
+    OCR2A = pwm_RF;     
+}
 
-void right_motor_forward(void) {//pin10
+
+/*void right_motor_forward(void) {//pin10
     TCCR1A = 0b01000001;
     PORTB &= 0b11111011;
 }
@@ -492,7 +515,7 @@ void left_motor_forward(void) {//pin5
 void left_motor_reverse(void) {//pin6
     TCCR0A = 0b00100001;
     PORTD &= 0b10111111;
-}
+}*/
 
 // Convert percentages to PWM values
 int pwmVal(float speed)
@@ -654,14 +677,10 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  //analogWrite(LF, val);
-  //analogWrite(RF, curr_pwm);
-  //analogWrite(LR, 0);
-  //analogWrite(RR, 0);
- pwm_LF = val;
- pwm_RF = curr_pwm;
- right_motor_forward();
- left_motor_forward();
+  _analogWrite(LF, val);
+  _analogWrite(RF, curr_pwm);
+  _analogWrite(LR, 0);
+  _analogWrite(RR, 0);
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -685,14 +704,10 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  //analogWrite(LR, val);
-  //analogWrite(RR, curr_pwm);
-  //analogWrite(LF, 0);
-  //analogWrite(RF, 0);
- pwm_LR = val;
- pwm_RR = curr_pwm;
- right_motor_reverse();
- left_motor_reverse();
+  _analogWrite(LR, val);
+  _analogWrite(RR, curr_pwm);
+  _analogWrite(LF, 0);
+  _analogWrite(RF, 0);
   
 }
 
@@ -721,14 +736,10 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  //analogWrite(RF, curr_pwm);
-  //analogWrite(LR, val);
-  //analogWrite(RR, 0);
-  //analogWrite(LF, 0);
- pwm_LF = val;
- pwm_RR = curr_pwm;
- right_motor_forward();
- left_motor_reverse();
+  _analogWrite(RF, curr_pwm);
+  _analogWrite(LR, val);
+  _analogWrite(RR, 0);
+  _analogWrite(LF, 0);
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -750,14 +761,10 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  //analogWrite(RR, curr_pwm);
-  //analogWrite(LF, val);
-  //analogWrite(RF, 0);
-  //analogWrite(LR, 0);
- pwm_LF = val;
- pwm_RR = curr_pwm;
- right_motor_reverse();
- left_motor_forward();
+  _analogWrite(RR, curr_pwm);
+  _analogWrite(LF, val);
+  _analogWrite(RF, 0);
+  _analogWrite(LR, 0);
 }
     
 
@@ -765,14 +772,10 @@ void right(float ang, float speed)
 void stop()
 {
   dir = STOP;
-  //analogWrite(LF, 0);
-  //analogWrite(LR, 0);
-  //analogWrite(RF, 0);
-  //analogWrite(RR, 0);
-  pwm_LF = 0;
-  pwm_LR = 0;
-  pwm_RF = 0;
-  pwm_RR = 0;
+  _analogWrite(LF, 0);
+  _analogWrite(LR, 0);
+  _analogWrite(RF, 0);
+  _analogWrite(RR, 0);
 }
 
 /*
@@ -939,7 +942,7 @@ void setup() {
   setupSerial();
   startSerial();
   setupMotors();
-  //startMotors();
+  startMotors();
   enablePullups();
   initializeState();
   setupPowerSaving();
