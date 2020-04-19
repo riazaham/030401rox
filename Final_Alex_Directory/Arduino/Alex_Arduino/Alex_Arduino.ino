@@ -428,6 +428,29 @@ void setupMotors()
     TCCR2B = 0b00000011;
 }
 
+ISR(TIMER0_COMPA_vect)
+{
+  OCR0A = _OCR0A;
+}
+ISR(TIMER0_COMPB_vect)
+{
+  OCR0B = _OCR0B;
+}
+ISR(TIMER1_COMPA_vect)
+{
+}
+ISR(TIMER1_COMPB_vect)
+{
+  OCR1BL = _OCR1BL;
+}
+ISR(TIMER2_COMPA_vect)
+{
+  OCR2A = _OCR2A;
+}
+ISR(TIMER2_COMPB_vect)
+{
+}
+
 // Start the PWM for Alex's motors.
 // We will implement this later. For now it is
 // blank.
