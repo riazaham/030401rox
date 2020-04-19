@@ -82,6 +82,13 @@ void handleStatus(TPacket *packet)
 	sendNetworkData(data, sizeof(data));
 }
 
+void sendOK(){
+	TPacket okpacket;
+	okpacket.packetType = PACKET_TYPE_RESPONSE;
+	okpacket.command = RESP_OK;
+	uartSendPacket(&okpacket);
+}
+
 void handleResponse(TPacket *packet)
 {
 	// The response code is stored in command
@@ -90,6 +97,7 @@ void handleResponse(TPacket *packet)
 		case RESP_OK:
 			char resp[2];
 			printf("Command OK\n");
+			sendOK();
 			resp[0] = NET_ERROR_PACKET;
 			resp[1] = RESP_OK;
 			sendNetworkData(resp, sizeof(resp));

@@ -1,9 +1,12 @@
-
+#include <buffer.h>
 #include <serialize.h>
 #include <avr/sleep.h> 
 #include "packet.h"
 #include "constants.h"
+#include "buffer.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #define _STOP 0
 #define _FORWARD 1
@@ -34,6 +37,11 @@
  //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
+//Serial bare metal
+#define RECV_SIZE 128
+#define XMIT_SIZE 512
+TBuffer _recvBuffer;
+TBuffer _xmitBuffer;
 
 typedef enum{
   STOP = 0,
@@ -147,15 +155,17 @@ TResult readPacket(TPacket *packet)
     // deserializes it.Returns deserialized
     // data in "packet".
     
-    char buffer[PACKET_SIZE];
+    unsigned char buffer[PACKET_SIZE];
     int len;
 
+    cli();
     len = readSerial(buffer);
+    sei();
 
     if(len == 0)
       return PACKET_INCOMPLETE;
     else
-      return deserialize(buffer, len, packet);
+      return deserialize((const char*) buffer, len, packet);
     
 }
 
@@ -267,9 +277,10 @@ void sendResponse(TPacket *packet)
   // over the serial port.
   char buffer[PACKET_SIZE];
   int len;
-
   len = serialize(buffer, packet, sizeof(TPacket));
-  writeSerial(buffer, len);
+  cli();
+  writeSerial((const unsigned char*) buffer, len);
+  sei();
 }
 
 
@@ -350,42 +361,86 @@ ISR(INT1_vect){
 void setupSerial()
 {
   // To replace later with bare-metal.
-  Serial.begin(9600);
+  //Serial.begin(9600)
+  UBRR0L = 103;
+  UBRR0H = 0;
+
+  UCSR0C = 0b00000110; 
+  UCSR0A = 0;
 }
 
 // Start the serial connection. For now we are using
 // Arduino wiring and this function is empty. We will
 // replace this later with bare-metal code.
 
+void setupBuffers()
+{
+    // Initialize the receive and transmit buffers.
+    initBuffer(&_recvBuffer, RECV_SIZE);
+    initBuffer(&_xmitBuffer, XMIT_SIZE);
+}
+
 void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
   // later on.
-  
+  UCSR0B = 0b10111000;
+}
+
+ISR(USART_RX_vect) {
+ 
+    // Write received data
+    unsigned char data = UDR0;
+    writeBuffer(&_recvBuffer, data);
 }
 
 // Read the serial port. Returns the read character in
 // ch if available. Also returns TRUE if ch is valid. 
 // This will be replaced later with bare-metal code.
 
-int readSerial(char *buffer)
+int readSerial(unsigned char *buffer)
 {
+    int count = 0;
 
-  int count=0;
+    TBufferResult result;
 
-  while(Serial.available())
-    buffer[count++] = Serial.read();
+    do {
+        result = readBuffer(&_recvBuffer, &buffer[count]);
+        if (result == BUFFER_OK)
+            count++;
+    } while (result == BUFFER_OK);
 
-  return count;
+    return count;
 }
+
+
+ISR(USART_UDRE_vect)
+{ 
+    unsigned char data;
+    TBufferResult result = readBuffer(&_xmitBuffer, &data);
+ 
+    if (result == BUFFER_OK)
+        UDR0 = data;
+    else
+        if (result == BUFFER_EMPTY) {
+            UCSR0B &= 0b11011111;    
+        }
+}
+
 
 // Write to the serial port. Replaced later with
 // bare-metal code
 
-void writeSerial(const char *buffer, int len)
+void writeSerial(const unsigned char *buffer, int len)
 {
-  Serial.write(buffer, len);
-  ok_flag = 1;
+
+   TBufferResult result = BUFFER_OK;
+   for(int i = 1; i < len && result == BUFFER_OK; i++)
+   {
+    result = writeBuffer(&_xmitBuffer, buffer[i]);
+   }
+ UDR0 = buffer[0];
+ UCSR0B |= 0b00100000;
 }
 
 /*
@@ -756,16 +811,16 @@ void clearCounters()
   rightRevs=0;
   forwardDist=0;
   reverseDist=0; */
-leftForwardTicks = 0; 
-leftReverseTicks = 0; 
-rightForwardTicks = 0;
-rightReverseTicks = 0; 
+  leftForwardTicks = 0; 
+  leftReverseTicks = 0; 
+  rightForwardTicks = 0;
+  rightReverseTicks = 0; 
 
-//Turn counter
-leftForwardTicksTurns = 0; 
-leftReverseTicksTurns = 0; 
-rightForwardTicksTurns = 0;
-rightReverseTicksTurns = 0; 
+  //Turn counter
+  leftForwardTicksTurns = 0; 
+  leftReverseTicksTurns = 0; 
+  rightForwardTicksTurns = 0;
+  rightReverseTicksTurns = 0; 
 }
 
 // Clears one particular counter
@@ -812,8 +867,19 @@ void initializeState()
   clearCounters();
 }
 
+void waitForReady(){
+  ok_flag = 0;
+  sendOK();
+  while(!ok_flag){
+    TPacket temp;
+    TResult result = readPacket(&temp);
+    if(result == PACKET_OK) handleResponse(&temp);
+  }
+}
+
 void handleCommand(TPacket *command)
 {
+  int i = 0;
   switch(command->command)
   {
     // For movement commands, param[0] = distance, param[1] = speed.
@@ -851,14 +917,14 @@ void handleCommand(TPacket *command)
     break;
 
     case COMMAND_GET_STATS:
-        sendOK();
+        ok_flag = 0;
+        waitForReady();
         sendStatus();
     break;
         
     default:
       sendBadCommand();
   }
-  
 }
 
 void waitForHello()
@@ -879,8 +945,6 @@ void waitForHello()
     {
       if(hello.packetType == PACKET_TYPE_HELLO)
       {
-     
-
         sendOK();
         exit=1;
       }
@@ -905,6 +969,7 @@ void setup() {
   setupEINT();
   setupSerial();
   startSerial();
+  setupBuffers();
   setupMotors();
   startMotors();
   enablePullups();
@@ -917,6 +982,15 @@ void setup() {
 
 }
 
+void handleResponse(TPacket *temp)
+{
+  switch(temp->command){
+    case RESP_OK:
+      ok_flag = 1;
+    break;
+  }
+}
+
 void handlePacket(TPacket *packet)
 {
   switch(packet->packetType)
@@ -926,6 +1000,7 @@ void handlePacket(TPacket *packet)
       break;
 
     case PACKET_TYPE_RESPONSE:
+      handleResponse(packet);
       break;
 
     case PACKET_TYPE_ERROR:
@@ -979,22 +1054,29 @@ void setupPowerSaving()
 
 void putArduinoToIdle() 
 { 
-  while(!ok_flag);
   sendCommand(COMMAND_RPLIDAR_SLEEP);
+
+  // Prevents conflict in serialization due to packet congestion. 
+  // Only proceed with the rest of the code until above command is sent.
+  waitForReady();
+  
   // Modify PRR to shut down TIMER 0, 1, and 2 
   PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
+  
   // Modify SE bit in SMCR to enable (i.e., allow) sleep 
   SMCR |= SMCR_SLEEP_ENABLE_MASK;
+  
   // The following function puts ATmega328P’s MCU into sleep; 
   // it wakes up from sleep when USART serial data arrives 
+  
   sleep_cpu(); 
+  
   // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
   SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
+  
   // Modify PRR to power up TIMER 0, 1, and 2 
   PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
-  while(!ok_flag);
   sendCommand(COMMAND_RPLIDAR_SLEEP);                                                                                                                                                        
-
 } 
  
 
@@ -1007,8 +1089,6 @@ void loop() {
 // forward(0, 100);
 
 // Uncomment the code below for Week 9 Studio 2
-  
- 
 
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
@@ -1096,3 +1176,4 @@ void loop() {
   }
   
 }
+
