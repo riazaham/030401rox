@@ -439,25 +439,25 @@ void setupMotors() {
 
     //TCN0
     TCNT0 = 0;
-    OCR0A = 0;
-    OCR0B = 0;
+    OCR0A = 50;
+    OCR0B = 50;
     TIMSK0 |= 0b110;
     TCCR0B = 0b00000011;
 
     //TCN1
     TCNT1 = 0;
-    OCR1B = 0;
+    OCR1BL = 50;
     TIMSK1 |= 0b110;
     TCCR1B = 0b00000011;
 
     //TCN2
     TCNT2 = 0;
-    OCR2A = 0;
+    OCR2A = 50;
     TIMSK2 |= 0b110;
     TCCR2B = 0b00000011;
 }
 
-void _analogWrite(int dir, double pwm){
+void _analogWrite(int dir, int pwm){
   switch(dir){
     case LF: 
       OCR1BL = pwm;
@@ -474,12 +474,12 @@ void _analogWrite(int dir, double pwm){
 
 
 void startMotors() {
-    TCCR0A = 0b00000011;
-    TCCR1A = 0b00000011;
-    TCCR2A = 0b00000011;
+    TCCR0A = 0b01010011;
+    TCCR1A = 0b00010011;
+    TCCR2A = 0b01000011;
 }
 
-
+/*
 ISR(TIMER0_COMPA_vect) {
     OCR0A = pwm_LF;     
 }
@@ -494,7 +494,7 @@ ISR(TIMER1_COMPB_vect) {
 
 ISR(TIMER2_COMPA_vect) {
     OCR2A = pwm_RF;     
-}
+}*/
 
 
 /*void right_motor_forward(void) {//pin10
@@ -552,7 +552,7 @@ void printdb(char *format, ...) {
 //A constant proportionate to the error value is then summed with the slave motor's current pwm value,
 //which can increase and decrease depending on value of error.
 //The proportion of the constant to the error is obtained via exhaustive trial and error.
-
+/*
 void calibrateMotors(){
   double error;
   int curr_left = 0;
@@ -656,7 +656,7 @@ void calibrateMotors(){
   }
   
 }
-
+*/
 
 void forward(float dist, float speed)
 {
@@ -677,10 +677,10 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  _analogWrite(LF, val);
-  _analogWrite(RF, curr_pwm);
-  _analogWrite(LR, 0);
-  _analogWrite(RR, 0);
+  analogWrite(LF, val);
+  analogWrite(RF, curr_pwm);
+  analogWrite(LR, 0);
+  analogWrite(RR, 0);
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -1043,7 +1043,7 @@ void loop() {
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
-forward(0, 100);
+forward(0, 0);
 
 // Uncomment the code below for Week 9 Studio 2
   
