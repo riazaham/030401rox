@@ -1,8 +1,4 @@
-#include <serialize.h>
-#include <avr/sleep.h> 
-#include "packet.h"
-#include "constants.h"
-#include "buffer.h"
+
 #include <math.h>
 
 #define _STOP 0
@@ -11,16 +7,6 @@
 #define _LEFT 3
 #define _RIGHT 4
 
-#define PRR_TWI_MASK            0b10000000 
-#define PRR_SPI_MASK            0b00000100 
-#define ADCSRA_ADC_MASK         0b10000000 
-#define PRR_ADC_MASK            0b00000001 
-#define PRR_TIMER2_MASK         0b01000000 
-#define PRR_TIMER0_MASK         0b00100000 
-#define PRR_TIMER1_MASK         0b00001000 
-#define SMCR_SLEEP_ENABLE_MASK  0b00000001 
-#define SMCR_IDLE_MODE_MASK     0b11110001 
-//#define PIN5 0b00010000;/
 
 /*
  * Alex's configuration constants
@@ -34,10 +20,8 @@
  //Pin 10: OC1B (PB2) BIN1 BOUT1 RED RIGHT MOTOR
  //Pin 11: OC2A (PB3) BIN2 BOUT2 BLACK RIGHT MOTOR
 
-#define RECV_SIZE      128
 
-static TBuffer _recvBuffer;
-
+int dir;
 
 typedef enum{
   STOP = 0,
@@ -46,8 +30,6 @@ typedef enum{
   LEFT = 3,
   RIGHT = 4
 } TDirection;
-
-volatile TDirection dir = STOP;
 
 // Number of ticks per revolution from the 
 // wheel encoder.
@@ -101,6 +83,14 @@ volatile unsigned long _leftReverseTicksTurns;
 volatile unsigned long _rightForwardTicksTurns;
 volatile unsigned long _rightReverseTicksTurns; 
 
+//Turn counter
+volatile unsigned int _OCR0A = 0; 
+volatile unsigned int _OCR0B = 0; 
+volatile unsigned int _OCR1A = 0; 
+volatile unsigned int _OCR1BL = 0; 
+volatile unsigned int _OCR2A = 0; 
+volatile unsigned int _OCR2B = 0; 
+
 
 
 // Store the revolutions on Alex's left
@@ -134,140 +124,6 @@ double tickDifference = 0.0;
 double curr_pwm = 0.0;
 
 
-/*
- * 
- * Alex Communication Routines.
- * 
- */
-
-
-
-
-TResult readPacket(TPacket *packet)
-{
-    // Reads in data from the serial port and
-    // deserializes it.Returns deserialized
-    // data in "packet".
-    
-    char buffer[PACKET_SIZE];
-    int len;
-
-    len = readSerial(buffer);
-
-    if(len == 0)
-      return PACKET_INCOMPLETE;
-    else
-      printdb("Buffer is read\n");
-      return deserialize(buffer, len, packet);
-    
-}
-
-void sendStatus()
-{
-  TPacket statusPacket;
-  statusPacket.packetType = PACKET_TYPE_RESPONSE;
-  statusPacket.command = RESP_STATUS;
-  statusPacket.params[0] = leftForwardTicks;
-  statusPacket.params[1] = rightForwardTicks;
-  statusPacket.params[2] = leftReverseTicks;
-  statusPacket.params[3] = rightReverseTicks;
-  statusPacket.params[4] = leftForwardTicksTurns;
-  statusPacket.params[5] = rightForwardTicksTurns;
-  statusPacket.params[6] = leftReverseTicks;
-  statusPacket.params[7] = rightReverseTicksTurns;
-  statusPacket.params[8] = forwardDist;
-  statusPacket.params[9] = reverseDist;
-
-  sendResponse(&statusPacket);
-  // Implement code to send back a packet containing key
-  // information like leftTicks, rightTicks, leftRevs, rightRevs
-  // forwardDist and reverseDist
-  // Use the params array to store this information, and set the
-  // packetType and command files accordingly, then use sendResponse
-  // to send out the packet. See sendMessage on how to use sendResponse.
-  //
-}
-
-void sendMessage(const char *message)
-{
-  // Sends text messages back to the Pi. Useful
-  // for debugging.
-  
-  TPacket messagePacket;
-  messagePacket.packetType=PACKET_TYPE_MESSAGE;
-  strncpy(messagePacket.data, message, MAX_STR_LEN);
-  sendResponse(&messagePacket);
-}
-
-void sendBadPacket()
-{
-  // Tell the Pi that it sent us a packet with a bad
-  // magic number.
-  
-  TPacket badPacket;
-  badPacket.packetType = PACKET_TYPE_ERROR;
-  badPacket.command = RESP_BAD_PACKET;
-  sendResponse(&badPacket);
-  
-}
-
-void sendBadChecksum()
-{
-  // Tell the Pi that it sent us a packet with a bad
-  // checksum.
-  
-  TPacket badChecksum;
-  badChecksum.packetType = PACKET_TYPE_ERROR;
-  badChecksum.command = RESP_BAD_CHECKSUM;
-  sendResponse(&badChecksum);  
-}
-
-void sendBadCommand()
-{
-  // Tell the Pi that we don't understand its
-  // command sent to us.
-  
-  TPacket badCommand;
-  badCommand.packetType=PACKET_TYPE_ERROR;
-  badCommand.command=RESP_BAD_COMMAND;
-  sendResponse(&badCommand);
-
-}
-
-void sendBadResponse()
-{
-  TPacket badResponse;
-  badResponse.packetType = PACKET_TYPE_ERROR;
-  badResponse.command = RESP_BAD_RESPONSE;
-  sendResponse(&badResponse);
-}
-
-void sendOK()
-{
-  TPacket okPacket;
-  okPacket.packetType = PACKET_TYPE_RESPONSE;
-  okPacket.command = RESP_OK;
-  sendResponse(&okPacket);  
-}
-
-void sendResponse(TPacket *packet)
-{
-  // Takes a packet, serializes it then sends it out
-  // over the serial port.
-  char buffer[PACKET_SIZE];
-  int len;
-
-  len = serialize(buffer, packet, sizeof(TPacket));
-  writeSerial(buffer, len);
-}
-
-
-/*
- * Setup and start codes for external interrupts and 
- * pullup resistors.
- * 
- */
-// Enable pull up resistors on pins 2 and 3
 void enablePullups()
 {
   // Use bare-metal to enable the pull-up resistors on pins
@@ -345,6 +201,7 @@ ISR(INT1_vect){
 // Set up the serial connection. For now we are using 
 // Arduino Wiring, you will replace this later
 // with bare-metal code.
+/*
 void setupSerial()
 {
   // To replace later with bare-metal.
@@ -362,12 +219,12 @@ void setupBuffers()
     initBuffer(&_recvBuffer, RECV_SIZE);
 }
 
-
+*/
 
 // Start the serial connection. For now we are using
 // Arduino wiring and this function is empty. We will
 // replace this later with bare-metal code.
-
+/*
 void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
@@ -394,7 +251,7 @@ int readSerial(unsigned char* line)
       buffer[count++] = Serial.read();
     return count;
     */
-    int count = 0;
+ /*   int count = 0;
 
     TBufferResult result;
 
@@ -419,7 +276,7 @@ void writeSerial(const unsigned char* line, int len) {
         line++;
     }
 }
-
+*/
 /*
  * Alex's motor drivers.
  * 
@@ -439,35 +296,71 @@ void setupMotors() {
 
     //TCN0
     TCNT0 = 0;
-    OCR0A = 50;
-    OCR0B = 50;
+    OCR0A = 0;
+    OCR0B = 0;
     TIMSK0 |= 0b110;
     TCCR0B = 0b00000011;
 
     //TCN1
     TCNT1 = 0;
-    OCR1BL = 50;
+    OCR1BL = 0;
     OCR1BH = 0;
     TIMSK1 |= 0b110;
     TCCR1B = 0b00000011;
 
     //TCN2
     TCNT2 = 0;
-    OCR2A = 50;
+    OCR2A = 0;
     TIMSK2 |= 0b110;
     TCCR2B = 0b00000011;
 }
 
+ISR(TIMER0_COMPA_vect)
+{
+  OCR0A = _OCR0A;
+}
+ISR(TIMER0_COMPB_vect)
+{
+  OCR0B = _OCR0B;
+}
+ISR(TIMER1_COMPA_vect)
+{
+}
+ISR(TIMER1_COMPB_vect)
+{
+  OCR1BL = _OCR1BL;
+}
+ISR(TIMER2_COMPA_vect)
+{
+  OCR2A = _OCR2A;
+}
+ISR(TIMER2_COMPB_vect)
+{
+}
+
+
 void _analogWrite(int dir, int pwm){
   switch(dir){
     case LF: 
-      OCR1BL = pwm;
+      if(pwm == 0) TCCR1A &= 0b11001111;
+      else TCCR1A |= 0b00100000;
+      _OCR1BL = pwm;
+      break;
     case RF:
-      OCR0B = pwm;
+      if(pwm == 0) TCCR0A &= 0b00111111;
+      else TCCR0A |= 0b10000000;
+      _OCR0A = pwm;
+      break;
     case LR:
-      OCR2A = pwm;
+      if(pwm == 0) TCCR2A &= 0b00111111;
+      else TCCR2A |= 0b10000000;
+      _OCR2A = pwm;
+      break;
     case RR:
-      OCR0B = pwm;
+      if(pwm == 0) TCCR0A &= 0b11001111;
+      else TCCR0A |= 0b00100000;
+      _OCR0B = pwm;
+      break;
   }
 }
 
@@ -527,137 +420,9 @@ int pwmVal(float speed)
   if(speed > 100.0)
     speed = 100.0;
 
-  return ((float)speed / 100.0) * 255.0;
+  return ((speed / 100.0) * 255.0);
 }
 
-// Move Alex forward "dist" cm at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// move forward at half speed.
-// Specifying a distance of 0 means Alex will
-// continue moving forward indefinitely.
-
-
-void printdb(char *format, ...) {
-  va_list args;
-  char buffer[128];
-
-  va_start(args, format);
-  vsprintf(buffer, format, args);
-  sendMessage(buffer);
-}
-
-
-
-//Calibrates the pwm value supplied to the slave motor so that the robot can move straight as desired.
-//Error is calculated by difference in rate of change of left ticks and that of right ticks.
-//A constant proportionate to the error value is then summed with the slave motor's current pwm value,
-//which can increase and decrease depending on value of error.
-//The proportion of the constant to the error is obtained via exhaustive trial and error.
-/*
-void calibrateMotors(){
-  double error;
-  int curr_left = 0;
-  int curr_right = 0;
-  
-  double val = curr_pwm;
-  switch(dir){
-    case FORWARD:
-      
-      curr_left = leftForwardTicks;
-      curr_right = rightForwardTicks;
-      delayMicroseconds(50000);
-      curr_left = leftForwardTicks - curr_left;
-      curr_right = rightForwardTicks - curr_right;
-      error = curr_left - curr_right;
-      
-      if(error){
-        val += error*20;
-
-        //PWM value supplied to the motors cannot be out of range of [0, 255].
-        curr_pwm = (val>255)?255:
-                   (val < 0)?0:
-                   val;
-        //analogWrite(RF, curr_pwm);
-       //Bare metal
-       pwm_RF = curr_pwm;
-       right_motor_forward();
-      }
-    break;
-
-    case BACKWARD:
-      curr_left = leftReverseTicks;
-      curr_right = rightReverseTicks;
-      delayMicroseconds(50000);
-      curr_left = leftReverseTicks - curr_left;
-      curr_right = rightReverseTicks - curr_right;
-      
-      error = curr_left - curr_right;
-      
-      if(error){
-        val += error*20;
-
-        //PWM value supplied to the motors cannot be out of range of [0, 255].
-        curr_pwm = (val>255)?255:
-                   (val < 0)?0:
-                   val;
-        //analogWrite(RR, curr_pwm);
-       //Bare metal
-       pwm_RR = curr_pwm;
-       right_motor_reverse();
-      }
-    break;
-
-    case RIGHT:
-      curr_left = leftForwardTicksTurns;
-      curr_right = rightReverseTicksTurns;
-      delayMicroseconds(50000);
-      curr_left = leftForwardTicksTurns - curr_left;
-      curr_right = rightReverseTicksTurns - curr_right;
-      error = curr_left - curr_right;
-      
-      if(error){
-        val += error*20;
-
-        //PWM value supplied to the motors cannot be out of range of [0, 255].
-        curr_pwm = (val>255)?255:
-                   (val < 0)?0:
-                   val;
-        //analogWrite(RR, curr_pwm);
-       //Bare metal
-       pwm_RR = curr_pwm;
-       right_motor_reverse();
-      }
-    break;
-
-    case LEFT:
-      curr_left = leftReverseTicksTurns;
-      curr_right = rightForwardTicksTurns;
-      delayMicroseconds(50000);
-      curr_left = leftReverseTicksTurns - curr_left;
-      curr_right = rightForwardTicksTurns - curr_right;
-      
-      error = curr_left - curr_right;
-      if(error){
-        val += error*20;
-
-        //PWM value supplied to the motors cannot be out of range of [0, 255].
-        curr_pwm = (val>255)?255:
-                   (val < 0)?0:
-                   val;
-        //analogWrite(RF, curr_pwm);
-       //Bare metal
-       pwm_RF = curr_pwm;
-       right_motor_forward();
-      }
-    break;
-
-    case STOP:
-      stop();
-    break;
-  }
-  
-}
-*/
 
 void forward(float dist, float speed)
 {
@@ -665,7 +430,6 @@ void forward(float dist, float speed)
   
   int val = pwmVal(speed);
   curr_pwm = 1.36*val;
-  int error = leftForwardTicks - rightForwardTicks;
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
   // in Week 9.
@@ -678,10 +442,12 @@ void forward(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = forwardDist + deltaDist;
-  analogWrite(LF, val);
-  analogWrite(RF, curr_pwm);
-  analogWrite(LR, 0);
-  analogWrite(RR, 0);
+  //Serial.print("val is ");
+  //Serial.println(val);
+  _analogWrite(LF, val);
+  _analogWrite(RF, val);
+  _analogWrite(LR, 0);
+  _analogWrite(RR, 0);
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -705,10 +471,10 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  _analogWrite(LR, val);
-  _analogWrite(RR, curr_pwm);
   _analogWrite(LF, 0);
   _analogWrite(RF, 0);
+  _analogWrite(LR, val);
+  _analogWrite(RR, val);
   
 }
 
@@ -737,7 +503,7 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  _analogWrite(RF, curr_pwm);
+  _analogWrite(RF, val);
   _analogWrite(LR, val);
   _analogWrite(RR, 0);
   _analogWrite(LF, 0);
@@ -762,7 +528,7 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  _analogWrite(RR, curr_pwm);
+  _analogWrite(RR, val);
   _analogWrite(LF, val);
   _analogWrite(RF, 0);
   _analogWrite(LR, 0);
@@ -849,194 +615,23 @@ void initializeState()
   clearCounters();
 }
 
-void handleCommand(TPacket *command)
-{
-  switch(command->command)
-  {
-    // For movement commands, param[0] = distance, param[1] = speed.
-    case COMMAND_FORWARD:
-        sendOK();
-        forward((float) command->params[0], (float) command->params[1]);
-    break;
-
-    case COMMAND_TURN_LEFT:
-        sendOK();
-        left((float) command->params[0], (float) command->params[1]);
-    break;
-
-    case COMMAND_TURN_RIGHT:
-        sendOK();
-        right((float) command->params[0], (float) command->params[1]);
-    break;
-    
-    case COMMAND_REVERSE:
-        sendOK();
-        reverse((float) command->params[0], (float) command->params[1]);
-    break;
-    
-    case COMMAND_STOP:
-        sendOK();
-        stop();
-    break;
-    /*
-     * Implement code for other commands here.
-     * 
-     */
-    case COMMAND_CLEAR_STATS:
-        sendOK();
-        clearOneCounter(command->params[0]);
-    break;
-
-    case COMMAND_GET_STATS:
-        sendOK();
-        sendStatus();
-    break;
-        
-    default:
-      sendBadCommand();
-  }
-  
-}
-
-void waitForHello()
-{
-  int exit=0;
-
-  while(!exit)
-  {
-    TPacket hello;
-    TResult result;
-    
-    do
-    {
-      result = readPacket(&hello);
-    } while (result == PACKET_INCOMPLETE);
-
-    if(result == PACKET_OK)
-    {
-      if(hello.packetType == PACKET_TYPE_HELLO)
-      {
-     
-
-        sendOK();
-        exit=1;
-      }
-      else
-        sendBadResponse();
-    }
-    else
-      if(result == PACKET_BAD)
-      {
-        sendBadPacket();
-      }
-      else
-        if(result == PACKET_CHECKSUM_BAD)
-          sendBadChecksum();
-  } // !exit
-}
 
 void setup() {
   // put your setup code here, to run once:
 
   cli();
+ 
   setupEINT();
-  setupSerial();
-  startSerial();
-  setupMotors();
-  startMotors();
   enablePullups();
   initializeState();
-  setupPowerSaving();
-  
+  setupMotors();
+  startMotors();
   AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
   AlexCirc = PI * AlexDiagonal;
+   Serial.begin(9600);
   sei();
-
 }
 
-void handlePacket(TPacket *packet)
-{
-     printdb("Packet is ");
-    printdb(packet->packetType);
-    printdb("\n");
-  switch(packet->packetType)
-  {
-
-    case PACKET_TYPE_COMMAND:
-      handleCommand(packet);
-      break;
-
-    case PACKET_TYPE_RESPONSE:
-      break;
-
-    case PACKET_TYPE_ERROR:
-      break;
-
-    case PACKET_TYPE_MESSAGE:
-      break;
-
-    case PACKET_TYPE_HELLO:
-      break;
-  }
-}
-
-void WDT_off(void) 
-{ 
-/* Global interrupt should be turned OFF here if not already done so */ 
- 
-/* Clear WDRF in MCUSR */ 
-MCUSR &= ~(1<<WDRF); 
- 
-/* Write logical one to WDCE and WDE */ 
-/* Keep old prescaler setting to prevent unintentional 
-time-out */ 
-WDTCSR |= (1<<WDCE) | (1<<WDE); 
- 
-/* Turn off WDT */ 
-WDTCSR = 0x00; 
- 
-/* Global interrupt should be turned ON here if subsequent operations after calling this function do 
-not require turning off global interrupt */ 
-} 
-
-void setupPowerSaving() 
-{ 
-  // Turn off the Watchdog Timer   
-  WDT_off();
-  // Modify PRR to shut down TWI 
-  PRR |= PRR_TWI_MASK; 
-  // Modify PRR to shut down SPI 
-  PRR |= PRR_SPI_MASK;
-  // Modify ADCSRA to disable ADC,  
-  // then modify PRR to shut down ADC
-  ADCSRA &= ~ADCSRA_ADC_MASK;
-  PRR |= PRR_ADC_MASK;
-  // Set the SMCR to choose the IDLE sleep mode   // Do not set the Sleep Enable (SE) bit yet 
-  SMCR &= SMCR_IDLE_MODE_MASK;
-  // Set Port B Pin 5 as output pin, then write a logic LOW   // to it so that the LED tied to Arduino's Pin 13 is OFF. 
-  DDRB |= (1<<5);
-  PORTB &= ~(1<<5);
-} 
-
-void putArduinoToIdle() 
-{ 
-  // Modify PRR to shut down TIMER 0, 1, and 2 
-  PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
-
-  
-  // Modify SE bit in SMCR to enable (i.e., allow) sleep 
-  SMCR |= SMCR_SLEEP_ENABLE_MASK;
-  // The following function puts ATmega328P’s MCU into sleep; 
-  // it wakes up from sleep when USART serial data arrives 
-  sleep_cpu(); 
-  
-  // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
-  SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
-  // Modify PRR to power up TIMER 0, 1, and 2 
-  PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
-
-} 
- 
 
 
 void loop() {
@@ -1044,7 +639,9 @@ void loop() {
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
-forward(0, 0);
+reverse(0, 30);
+
+delay(1000);
 
 // Uncomment the code below for Week 9 Studio 2
   
