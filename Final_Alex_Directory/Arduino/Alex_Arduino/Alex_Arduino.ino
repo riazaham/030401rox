@@ -1,4 +1,6 @@
 #include <buffer.h>
+
+#include <buffer.h>
 #include <serialize.h>
 #include <avr/sleep.h> 
 #include "packet.h"
@@ -203,7 +205,6 @@ void sendCommand(int command)
       case COMMAND_RPLIDAR_SLEEP:
         commandPacket.command = command;
         sendResponse(&commandPacket);
-        ok_flag = 0;
         break;
   }
 }
@@ -869,7 +870,6 @@ void initializeState()
 
 void waitForReady(){
   ok_flag = 0;
-  sendOK();
   while(!ok_flag){
     TPacket temp;
     TResult result = readPacket(&temp);
@@ -917,6 +917,7 @@ void handleCommand(TPacket *command)
     break;
 
     case COMMAND_GET_STATS:
+        sendOK();
         ok_flag = 0;
         waitForReady();
         sendStatus();
@@ -1054,12 +1055,9 @@ void setupPowerSaving()
 
 void putArduinoToIdle() 
 { 
-  sendCommand(COMMAND_RPLIDAR_SLEEP);
+  //waitForReady();
+  int i = 0;
 
-  // Prevents conflict in serialization due to packet congestion. 
-  // Only proceed with the rest of the code until above command is sent.
-  waitForReady();
-  
   // Modify PRR to shut down TIMER 0, 1, and 2 
   PRR |= (PRR_TIMER2_MASK | PRR_TIMER0_MASK| PRR_TIMER1_MASK);
   
@@ -1070,13 +1068,14 @@ void putArduinoToIdle()
   // it wakes up from sleep when USART serial data arrives 
   
   sleep_cpu(); 
-  
+
+
   // Modify SE bit in SMCR to disable (i.e., disallow) sleep 
   SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
   
   // Modify PRR to power up TIMER 0, 1, and 2 
   PRR &= ~(PRR_TIMER2_MASK | PRR_TIMER0_MASK | PRR_TIMER1_MASK);
-  sendCommand(COMMAND_RPLIDAR_SLEEP);                                                                                                                                                        
+                                                                                                                                     
 } 
  
 
@@ -1120,7 +1119,7 @@ void loop() {
         deltaDist = 0;
         newDist = 0;
         stop();
-//        /putArduinoToIdle();
+        putArduinoToIdle();
       }
     }
   
@@ -1130,7 +1129,7 @@ void loop() {
           deltaDist = 0;
           newDist = 0;
           stop();
-//          /putArduinoToIdle();
+          putArduinoToIdle();
         }
       
         else{
@@ -1139,7 +1138,7 @@ void loop() {
             deltaDist = 0;
             newDist = 0;
             stop();
-//           
+        
           }
         }
       }
@@ -1151,7 +1150,7 @@ void loop() {
         deltaTicks = 0;
         targetTicks = 0;
         stop();
-//        /putArduinoToIdle();
+        putArduinoToIdle();
       }
     }
     else{
@@ -1160,7 +1159,7 @@ void loop() {
           deltaTicks = 0;
           targetTicks = 0;
           stop();
-//          /putArduinoToIdle();
+          putArduinoToIdle();
         }
         else{
           if(dir == STOP){

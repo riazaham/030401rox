@@ -193,7 +193,7 @@ int pwmgt_motorStop(){
 	int ret, receiver_fd;
 	char s[50];
 	//Change working directory to access stop.bin 
-	ret = chdir("/030401rox/Final\ Alex\ Firmware/Pi/slam/src/rplidar_ros/");
+	ret = chdir("/home/030401rox/Final_Alex_Directory/Pi/slam/src/rplidar_ros/");
 	//printf("%s\n", getcwd(s, 50));
 	//Set file description to binary file stop.bin to write to
 	receiver_fd = open("stop.bin", O_RDWR | O_CREAT, 0777);

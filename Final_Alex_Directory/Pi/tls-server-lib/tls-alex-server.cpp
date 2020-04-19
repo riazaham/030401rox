@@ -82,6 +82,8 @@ void handleStatus(TPacket *packet)
 	sendNetworkData(data, sizeof(data));
 }
 
+void uartSendPacket(TPacket *);
+
 void sendOK(){
 	TPacket okpacket;
 	okpacket.packetType = PACKET_TYPE_RESPONSE;
@@ -117,7 +119,7 @@ void rplidarSleep(){
 	//Every time user presses corresponding key, rplidar should toggle between sleep mode and active mode
 	toggle = 1-toggle;
 	buffer[0] = toggle ? 's': 'x';
-	ret = chdir("/home/030401rox/Final\ Alex\ Firmware/Pi/slam/src/rplidar_ros/");
+	ret = chdir("/home/pi/030401rox/Final_Alex_Directory/Pi/slam/src/rplidar_ros/");
 	sender_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
 	//Write to intermediate file "stop.bin" to toggle operating mode of LIDAR
 	write(sender_fd, buffer, 1);
@@ -138,7 +140,10 @@ void handleUARTPacket(TPacket *packet)
 	switch(packet->packetType)
 	{
 		case PACKET_TYPE_COMMAND:
+				printf("Command to sleep!\n");
+				sendOK();
 				handleCommand(packet);
+				
 				// Only we send command packets, so ignore
 			break;
 
