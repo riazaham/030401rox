@@ -309,6 +309,7 @@ void sendCommand(char ch, void* conn)
 
 	default:
 		printf("BAD COMMAND\n"); 
+		break;
 	}
 }
 
@@ -371,6 +372,7 @@ void sendCommand(char ch, void* conn)
 				printf("Command (p=toggle to easy mode, f=forward, b=reverse, l=turn left, r=turn right, x=stop, c=clear stats, g=get stats, q=exit, z=put rplidar to sleep!)\n\r");
 				printf("Easy Mode (w=forward, s=reverse, a=turn left, d=turn right, other commands remain the same!)\n\r");
 				// Purge extraneous characters from input stream
+				scanf("%c", &ch);
 				flushInput();
 				sendCommand(ch, conn);
 				break;

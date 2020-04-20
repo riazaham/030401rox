@@ -50,7 +50,7 @@ static void *tls_conn = NULL;
 	*/
 
 int toggle = 0;
-char buffer[1];
+
 
 // Prototype for sendNetworkData
 void sendNetworkData(const char *, int);
@@ -116,13 +116,28 @@ void handleResponse(TPacket *packet)
 
 void rplidarSleep(){
 	int sender_fd, ret;
+	char buffer[1];
 	//Every time user presses corresponding key, rplidar should toggle between sleep mode and active mode
 	toggle = 1-toggle;
 	buffer[0] = toggle ? 's': 'x';
 	ret = chdir("/home/pi/030401rox/Final_Alex_Directory/Pi/slam/src/rplidar_ros/");
 	sender_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
+	if(!sender_fd) printf("File cannot be created or be written to!\n");
 	//Write to intermediate file "stop.bin" to toggle operating mode of LIDAR
 	write(sender_fd, buffer, 1);
+	while()
+}
+
+int readLidar(){
+	int reader_fd, ret;
+	char buffer[1];
+	ret = chdir("/home/pi/030401rox/Final_Alex_Directory/Pi/slam/src/rplidar_ros/");
+	reader_fd = open("stop.bin", O_RDWR|O_CREAT,0777);
+	if(!reader_fd) printf("File cannot be created or be written to!\n");
+	//Write to intermediate file "stop.bin" to toggle operating mode of LIDAR
+	read(sender_fd, buffer, 1);
+	if(buffer[0] == 'g') return 1;
+	else return 0;
 }
 
 void handleCommand(TPacket *packet)
@@ -140,10 +155,7 @@ void handleUARTPacket(TPacket *packet)
 	switch(packet->packetType)
 	{
 		case PACKET_TYPE_COMMAND:
-				printf("Command to sleep!\n");
-				sendOK();
-				handleCommand(packet);
-				
+
 				// Only we send command packets, so ignore
 			break;
 
@@ -275,30 +287,40 @@ void handleCommand(void *conn, const char *buffer)
 
 		case 'f':
 		case 'F':
+			if(toggle) rplidarSleep();
+			while(!readLidar());
 			commandPacket.command = COMMAND_FORWARD;
 			uartSendPacket(&commandPacket);
 			break;
 
 		case 'b':
 		case 'B':
+			if(toggle) rplidarSleep();
+			while(!readLidar());
 			commandPacket.command = COMMAND_REVERSE;
 			uartSendPacket(&commandPacket);
 			break;
 
 		case 'l':
 		case 'L':
+			if(toggle) rplidarSleep();
+            while(!readLidar());
 			commandPacket.command = COMMAND_TURN_LEFT;
 			uartSendPacket(&commandPacket);
 			break;
 
 		case 'r':
 		case 'R':
+			if(toggle) rplidarSleep();
+			while(!readLidar());
 			commandPacket.command = COMMAND_TURN_RIGHT;
 			uartSendPacket(&commandPacket);
 			break;
 
 		case 's':
 		case 'S':
+			if(!toggle) rplidarSleep();
+			while(!readLidar());
 			commandPacket.command = COMMAND_STOP;
 			uartSendPacket(&commandPacket);
 			break;
