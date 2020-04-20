@@ -82,26 +82,26 @@ volatile TDirection dir = STOP;
  */
 
 // Store the ticks from Alex's left and
-// right encoders.
+// right encoders. [continuously updated]
 volatile unsigned long leftForwardTicks; 
 volatile unsigned long leftReverseTicks; 
 volatile unsigned long rightForwardTicks;
 volatile unsigned long rightReverseTicks; 
 
-//Turn counter
+//Turn counter [continuously updated]
 volatile unsigned long leftForwardTicksTurns; 
 volatile unsigned long leftReverseTicksTurns; 
 volatile unsigned long rightForwardTicksTurns;
 volatile unsigned long rightReverseTicksTurns; 
 
 // Store the ticks from Alex's left and
-// right encoders.
+// right encoders. [stored]
 volatile unsigned long _leftForwardTicks; 
 volatile unsigned long _leftReverseTicks; 
 volatile unsigned long _rightForwardTicks;
 volatile unsigned long _rightReverseTicks; 
 
-//Turn counter
+//Turn counter [stored]
 volatile unsigned long _leftForwardTicksTurns; 
 volatile unsigned long _leftReverseTicksTurns; 
 volatile unsigned long _rightForwardTicksTurns;
@@ -124,6 +124,7 @@ volatile unsigned long rightRevs;
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
 
+// Distance and tick variables to update and monitor change
 unsigned long deltaDist;
 unsigned long newDist;
 unsigned long deltaTicks;
@@ -134,9 +135,6 @@ volatile int _count = 0;
 
 float AlexDiagonal = 0.0;
 float AlexCirc = 0.0;
-
-//bool leftMotorCalibrated = false;
-//bool rightMotorCalibrated = false;
 
 double tickDifference = 0.0;
 double curr_pwm = 0.0;
@@ -265,7 +263,9 @@ void sendBadResponse()
 }
 
 void sendOK()
-{
+{  
+  // Tell the Pi to send us COMMAND_OK
+ 
   TPacket okPacket;
   okPacket.packetType = PACKET_TYPE_RESPONSE;
   okPacket.command = RESP_OK;
@@ -301,7 +301,7 @@ void enablePullups()
   PORTD |= ((1<<2)|(1<<3));
 }
 
-// Functions to be called by INT0 and INT1 ISRs.
+// Functions to be called by INT0 and INT1 ISRs. [Update of ticks]
 void leftISR()
 {
   if(dir == RIGHT) leftForwardTicksTurns++;
@@ -356,13 +356,13 @@ ISR(INT1_vect){
  * Setup and start codes for serial communications
  * 
  */
-// Set up the serial connection. For now we are using 
-// Arduino Wiring, you will replace this later
-// with bare-metal code.
+// Set up the serial connection
 void setupSerial()
 {
   // To replace later with bare-metal.
   //Serial.begin(9600)
+ 
+ //Bare Metal Implementation
   UBRR0L = 103;
   UBRR0H = 0;
 
@@ -370,24 +370,21 @@ void setupSerial()
   UCSR0A = 0;
 }
 
-// Start the serial connection. For now we are using
-// Arduino wiring and this function is empty. We will
-// replace this later with bare-metal code.
+// Start the serial connection
+void startSerial()
+{
+  // Bare Metal Implementation.
+  UCSR0B = 0b10111000;
+}
 
+// Initialize the receive and transmit buffers.
 void setupBuffers()
 {
-    // Initialize the receive and transmit buffers.
     initBuffer(&_recvBuffer, RECV_SIZE);
     initBuffer(&_xmitBuffer, XMIT_SIZE);
 }
 
-void startSerial()
-{
-  // Empty for now. To be replaced with bare-metal code
-  // later on.
-  UCSR0B = 0b10111000;
-}
-
+// Receive and write data to buffer [Interrupt when data received]
 ISR(USART_RX_vect) {
  
     // Write received data
@@ -395,12 +392,10 @@ ISR(USART_RX_vect) {
     writeBuffer(&_recvBuffer, data);
 }
 
-// Read the serial port. Returns the read character in
-// ch if available. Also returns TRUE if ch is valid. 
-// This will be replaced later with bare-metal code.
-
+// Read the serial port
 int readSerial(unsigned char *buffer)
 {
+   //Bare Metal Implementation
     int count = 0;
 
     TBufferResult result;
@@ -414,7 +409,7 @@ int readSerial(unsigned char *buffer)
     return count;
 }
 
-
+//Transmit serialised data
 ISR(USART_UDRE_vect)
 { 
     unsigned char data;
@@ -424,23 +419,24 @@ ISR(USART_UDRE_vect)
         UDR0 = data;
     else
         if (result == BUFFER_EMPTY) {
+            //Disable interrupt once all the data has been sent
             UCSR0B &= 0b11011111;    
         }
 }
 
 
-// Write to the serial port. Replaced later with
-// bare-metal code
-
+// Write to the serial port
 void writeSerial(const unsigned char *buffer, int len)
 {
 
+  //Bare Metal Implementation
    TBufferResult result = BUFFER_OK;
    for(int i = 1; i < len && result == BUFFER_OK; i++)
    {
     result = writeBuffer(&_xmitBuffer, buffer[i]);
    }
  UDR0 = buffer[0];
+ //Enable transmit interrupt
  UCSR0B |= 0b00100000;
 }
 
@@ -449,9 +445,7 @@ void writeSerial(const unsigned char *buffer, int len)
  * 
  */
 
-// Set up Alex's motors. Right now this is empty, but
-// later you will replace it with code to set up the PWMs
-// to drive the motors.
+// Set up Alex's motors [setup PWM to run the motors]
 void setupMotors()
 {
   /* Our motor set up is:  
@@ -460,6 +454,8 @@ void setupMotors()
    *    B1IN - Pin 10, PB2, OC1B
    *    B2In - pIN 11, PB3, OC2A
    */
+  
+    //Bare Metal Implementation
     DDRD |= 0b01100000; // Pin 5 and 6
     DDRB |= 0b00001100; // Pin 9 and 10
 
@@ -507,16 +503,16 @@ ISR(TIMER2_COMPB_vect)
 {
 }
 
-// Start the PWM for Alex's motors.
-// We will implement this later. For now it is
-// blank.
+// Start the PWM for Alex's motors
 void startMotors()
 {
+   //Bare Metal Implementation
     TCCR0A = 0b00000001;
     TCCR1A = 0b00000001;
     TCCR2A = 0b00000001;
 }
 
+//Bare Metal Implementation
 //Substitute to analogWrite()
 //Controls Output Compare pins IO to produce
 //required motion.
@@ -557,13 +553,7 @@ int pwmVal(float speed)
   return (int) ((speed / 100.0) * 255.0);
 }
 
-// Move Alex forward "dist" cm at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// move forward at half speed.
-// Specifying a distance of 0 means Alex will
-// continue moving forward indefinitely.
-
-
+//Used purely for debugging
 void dbprint(char *format, ...) {
   va_list args;
   char buffer[128];
@@ -673,6 +663,15 @@ void calibrateMotors(){
   
 }
 
+// Alex's 2 directional move functions (forward and reverse): 
+// move "dist" cm at speed "speed".
+// "speed" is expressed as a percentage. E.g. 50 is
+// move forward at half speed.
+// Specifying a distance of 0 means Alex will
+// continue moving forward indefinitely.
+
+// LF = Left forward pin, LR = Left reverse pin (implemented with bare metal)
+// RF = Right forward pin, RR = Right reverse pin (implemented with bare metal)
 
 void forward(float dist, float speed)
 {
@@ -681,14 +680,6 @@ void forward(float dist, float speed)
   int val = pwmVal(speed);
   curr_pwm = 1.36*val;
   int error = leftForwardTicks - rightForwardTicks;
-  // For now we will ignore dist and move
-  // forward indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
-
 
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
@@ -699,11 +690,6 @@ void forward(float dist, float speed)
   _analogWrite(RR, 0);
 }
 
-// Reverse Alex "dist" cm at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// reverse at half speed.
-// Specifying a distance of 0 means Alex will
-// continue reversing indefinitely.
 void reverse(float dist, float speed)
 {
   dir = BACKWARD;
@@ -713,13 +699,7 @@ void reverse(float dist, float speed)
   if(dist > 0) deltaDist = dist;
   else deltaDist = 9999999;
   newDist = reverseDist + deltaDist;
-  // For now we will ignore dist and 
-  // reverse indefinitely. We will fix this
-  // in Week 9.
 
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
   _analogWrite(LR, val);
   _analogWrite(RR, curr_pwm);
   _analogWrite(LF, 0);
@@ -728,7 +708,8 @@ void reverse(float dist, float speed)
   
 }
 
-// Turn Alex left "ang" degrees at speed "speed".
+// Alex's 2 directional move functions (left and right): 
+// Turn Alex at "ang" degrees at speed "speed".
 // "speed" is expressed as a percentage. E.g. 50 is
 // turn left at half speed.
 // Specifying an angle of 0 degrees will cause Alex to
@@ -748,11 +729,7 @@ void left(float ang, float speed)
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = leftReverseTicksTurns + deltaTicks;
   
-  
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn left we reverse the left wheel and move
-  // the right wheel forward.
+  // Left turn: reverse the left wheel and move forward the right wheel
   _analogWrite(RF, curr_pwm);
   _analogWrite(LR, val);
   _analogWrite(RR, 0);
@@ -760,11 +737,6 @@ void left(float ang, float speed)
 
 }
 
-// Turn Alex right "ang" degrees at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// turn left at half speed.
-// Specifying an angle of 0 degrees will cause Alex to
-// turn right indefinitely.
 void right(float ang, float speed)
 {
   dir = RIGHT;
@@ -775,10 +747,7 @@ void right(float ang, float speed)
   else deltaTicks = computeDeltaTicks(ang);
   targetTicks = rightReverseTicksTurns + deltaTicks;
 
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn right we reverse the right wheel and move
-  // the left wheel forward.
+  // Right turn: move forward the left wheel and reverse the right wheel
   _analogWrite(RR, curr_pwm);
   _analogWrite(LF, val);
   _analogWrite(RF, 0);
@@ -787,7 +756,7 @@ void right(float ang, float speed)
 }
     
 
-// Stop Alex. To replace with bare-metal code later.
+// Stop Alex
 void stop()
 {
   dir = STOP;
@@ -861,8 +830,8 @@ void clearOneCounter(int which)
       break;
   }
 }
-// Intialize Vincet's internal states
 
+// Intialize Alex's internal states
 void initializeState()
 {
   clearCounters();
@@ -907,10 +876,7 @@ void handleCommand(TPacket *command)
         sendOK();
         stop();
     break;
-    /*
-     * Implement code for other commands here.
-     * 
-     */
+
     case COMMAND_CLEAR_STATS:
         sendOK();
         clearOneCounter(command->params[0]);
@@ -928,6 +894,7 @@ void handleCommand(TPacket *command)
   }
 }
 
+//Used only for testing
 void waitForHello()
 {
   int exit=0;
@@ -1081,13 +1048,6 @@ void putArduinoToIdle()
 
 
 void loop() {
-  
-
-// Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
-
-// forward(0, 100);
-
-// Uncomment the code below for Week 9 Studio 2
 
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
